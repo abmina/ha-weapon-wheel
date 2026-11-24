@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.5
+- **Full screen** button in the top bar: the dashboard takes over the whole screen, without Home Assistant's title
+  bar and sidebar (and the browser's bars). Tap it again, or press Esc, to leave.
+- A wall panel left in full screen goes back to it on the first tap after a reload; browsers only allow full screen
+  after a tap.
+- **Back to the house after 30 seconds**: when nobody touches the screen (or moves the mouse or presses a key) for
+  30 seconds in the wheel menus, the wheel folds and the house comes back. Not while Customize or edit mode is open.
+
 ## 0.3.4
 - **Every Home Assistant user** can now open the dashboard, so it works on a wall panel with its own non-admin account.
 - **Only administrators can edit**: for other users *Edit*, *Customize* and hiding/unhiding items (right-click,

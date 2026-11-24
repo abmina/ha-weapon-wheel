@@ -2731,6 +2731,84 @@ $('#btn-edit').addEventListener('click', () => { if (!M()) return; if (S.plan) e
 $('#btn-plan').addEventListener('click', startPlanEdit);
 
 // ===================================================================
+// Full screen
+// Inside Home Assistant the dashboard runs in an Ingress iframe under HA's
+// title bar and sidebar. Ingress is served from HA's own origin, so the
+// iframe element itself can be made full screen from the parent page: only
+// the dashboard is left on screen. Opened directly (or if the parent page is
+// not reachable), the dashboard's own page goes full screen instead.
+// A wall panel that was left full screen goes back to it on the first tap
+// after a reload (browsers only allow full screen after a tap).
+// ===================================================================
+const fullscreen = (() => {
+  const KEY = 'ww-fullscreen';
+  const btn = $('#btn-full');
+  let target = document.documentElement;
+  try { if (window.frameElement?.ownerDocument) target = window.frameElement; } catch { /* other origin */ }
+  const doc = target.ownerDocument;
+  const enabled = !!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled)
+    && !!(target.requestFullscreen || target.webkitRequestFullscreen);
+  const active = () => !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+  let leaving = false;
+  const store = (on) => { try { on ? localStorage.setItem(KEY, '1') : localStorage.removeItem(KEY); } catch { /* private mode */ } };
+  const wanted = () => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } };
+
+  function enter() {
+    const req = target.requestFullscreen || target.webkitRequestFullscreen;
+    try {
+      const p = req.call(target, { navigationUI: 'hide' });
+      p?.catch?.((err) => toast(`Full screen is not allowed here: ${err.message || err}`, 'err'));
+    } catch (err) { toast(`Full screen is not allowed here: ${err.message || err}`, 'err'); }
+  }
+  function exit() { (doc.exitFullscreen || doc.webkitExitFullscreen)?.call(doc); }
+  function sync(save = true) {
+    const on = active();
+    btn.firstElementChild.className = `mdi ${on ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'}`;
+    btn.title = on ? 'Leave full screen' : "Full screen: hide Home Assistant's title bar and sidebar";
+    if (save && !leaving) store(on); // a reload also ends full screen; keep the wish for the next tap then
+  }
+
+  if (!enabled) return { active };
+  btn.hidden = false;
+  btn.addEventListener('click', () => (active() ? exit() : enter()));
+  const onChange = () => sync();
+  doc.addEventListener('fullscreenchange', onChange);
+  doc.addEventListener('webkitfullscreenchange', onChange);
+  window.addEventListener('pagehide', () => {
+    leaving = true;
+    doc.removeEventListener('fullscreenchange', onChange);
+    doc.removeEventListener('webkitfullscreenchange', onChange);
+  });
+  sync(false);
+  if (wanted() && !active()) {
+    const again = (e) => {
+      document.removeEventListener('pointerup', again, true);
+      if (!active() && !e.target.closest?.('#btn-full')) enter();
+    };
+    document.addEventListener('pointerup', again, true);
+  }
+  return { active };
+})();
+
+// ===================================================================
+// Idle timeout: after 30 s without a touch, click, mouse move or key press
+// in the wheel menus, fold the wheel and the sidebar and return to the house.
+// Not while Customize, a card editor or the dashboard edit mode is open.
+// ===================================================================
+const IDLE_MS = 30000;
+let lastActivity = Date.now();
+for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'input']) {
+  document.addEventListener(ev, () => { lastActivity = Date.now(); }, { capture: true, passive: true });
+}
+setInterval(() => {
+  if (S.nav.level === 'house' || busy.v || S.plan) { if (S.nav.level === 'house') lastActivity = Date.now(); return; }
+  if (!$('#editor').hidden || !$('#card-editor').hidden) { lastActivity = Date.now(); return; }
+  if (Date.now() - lastActivity < IDLE_MS) return;
+  lastActivity = Date.now();
+  guard(goHouse);
+}, 1000);
+
+// ===================================================================
 // Keyboard
 // ===================================================================
 document.addEventListener('keydown', (e) => {

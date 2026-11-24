@@ -394,6 +394,16 @@ Weapon Wheel from the sidebar).
 - In the **Companion app**, log in as the wall-panel user and open Weapon Wheel; the app reopens the last page you
   were on. If your Home Assistant version lists app panels under *Profile → Dashboard*, you can also choose it there.
 
+**Hide Home Assistant's title bar.** Tap the **full screen** button (four corners, top right) and the dashboard
+takes over the whole screen: Home Assistant's title bar and sidebar and the browser's bars are hidden. Tap it again
+(the icon turns into inward corners) or press Esc to leave. If the panel was in full screen when it reloaded, the
+first tap anywhere puts it back; browsers only allow full screen after a tap, so it can't start that way on its own.
+The button isn't shown where full screen isn't supported for web pages, such as on iPhones.
+
+**Back to the house on its own.** When nobody touches the screen, moves the mouse or presses a key for **30 seconds**
+while a wheel is open, the wheel and sidebar fold and the house comes back. This doesn't happen while Customize, a
+card editor or edit mode is open.
+
 > Controls on the dashboard work through the app, so a non-administrator can operate every device the dashboard shows.
 > Hide anything a wall panel shouldn't control, as an administrator, in Customize.
 

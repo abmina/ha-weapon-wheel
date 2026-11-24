@@ -114,6 +114,13 @@ Every Home Assistant user can open the dashboard and use its controls. Only **ad
 *Customize* and can hide or unhide items; the app also refuses changes from anyone else. To make it a wall panel's
 start page, point the kiosk browser at `http://<your-home-assistant>:8123/e7dd1b0c_weapon_wheel`.
 
+The **full screen** button (top right) hides Home Assistant's title bar and sidebar. A panel left in full screen
+returns to it on the first tap after a reload. Phones that don't support full screen for web pages (iPhone) don't
+show the button.
+
+After 30 seconds without a touch, click or key press in the wheel menus, the dashboard returns to the house on its
+own, so a wall panel always comes back to its start screen.
+
 If other users don't see Weapon Wheel after an update, turn **Show in sidebar** off and on once (or restart Home
 Assistant): Home Assistant only picks up who may see an app's sidebar entry when the entry is added.
 
