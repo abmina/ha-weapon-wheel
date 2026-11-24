@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.6
+- **Full screen works in kiosk browsers** such as Fully Kiosk Browser and in the Companion app: the button now
+  always shows inside Home Assistant. The dashboard stretches itself over Home Assistant's title bar and sidebar, so
+  it no longer depends on the browser offering full screen. Where the browser does, its own bars are hidden as well.
+- **Remembered per device**: a screen left in full screen hides Home Assistant's bars again as soon as it loads, no
+  tap needed. Tap the button again to bring them back.
+
 ## 0.3.5
 - **Full screen** button in the top bar: the dashboard takes over the whole screen, without Home Assistant's title
   bar and sidebar (and the browser's bars). Tap it again, or press Esc, to leave.

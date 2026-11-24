@@ -2734,60 +2734,97 @@ $('#btn-plan').addEventListener('click', startPlanEdit);
 // Full screen
 // Inside Home Assistant the dashboard runs in an Ingress iframe under HA's
 // title bar and sidebar. Ingress is served from HA's own origin, so the
-// iframe element itself can be made full screen from the parent page: only
-// the dashboard is left on screen. Opened directly (or if the parent page is
-// not reachable), the dashboard's own page goes full screen instead.
-// A wall panel that was left full screen goes back to it on the first tap
-// after a reload (browsers only allow full screen after a tap).
+// dashboard can reach its own iframe element in HA's page and stretch it over
+// the whole window ("cover"): HA's bars are hidden without the browser's
+// Fullscreen API, which kiosk browsers such as Fully often don't offer, and
+// without needing a tap. Where the browser does offer full screen, the frame
+// also goes properly full screen (hiding the browser's bars too).
+// The choice is remembered on the device: a wall panel covers HA's bars again
+// as soon as it loads, and re-enters browser full screen on the first tap
+// (browsers only allow that after a tap).
+// Opened directly (not in HA), only browser full screen is possible.
 // ===================================================================
 const fullscreen = (() => {
   const KEY = 'ww-fullscreen';
   const btn = $('#btn-full');
-  let target = document.documentElement;
-  try { if (window.frameElement?.ownerDocument) target = window.frameElement; } catch { /* other origin */ }
+  let frame = null;
+  try { if (window.frameElement?.ownerDocument) frame = window.frameElement; } catch { /* other origin */ }
+  const target = frame || document.documentElement;
   const doc = target.ownerDocument;
-  const enabled = !!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled)
+  const fsOk = !!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled)
     && !!(target.requestFullscreen || target.webkitRequestFullscreen);
-  const active = () => !!(doc.fullscreenElement || doc.webkitFullscreenElement);
-  let leaving = false;
+  const fsActive = () => !!(doc.fullscreenElement || doc.webkitFullscreenElement);
   const store = (on) => { try { on ? localStorage.setItem(KEY, '1') : localStorage.removeItem(KEY); } catch { /* private mode */ } };
   const wanted = () => { try { return localStorage.getItem(KEY) === '1'; } catch { return false; } };
+  let covered = false;
+  let savedStyle = '';
 
-  function enter() {
+  function cover() {
+    if (!frame || covered) return;
+    savedStyle = frame.getAttribute('style') || '';
+    frame.style.cssText += ';position:fixed!important;inset:0!important;left:0!important;top:0!important;'
+      + 'width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;'
+      + 'max-height:none!important;margin:0!important;border:0!important;z-index:2147483647!important;';
+    covered = true;
+    // Check HA's bars are really under the frame (an HA layout change could trap it in its box).
+    requestAnimationFrame(() => {
+      const r = frame.getBoundingClientRect();
+      const win = doc.defaultView;
+      const root = frame.getRootNode();
+      const top = root.elementFromPoint ? root.elementFromPoint(4, 4) : frame;
+      if (r.left > 1 || r.top > 1 || r.width < win.innerWidth - 2 || (top && top !== frame)) {
+        toast("Couldn't hide Home Assistant's bars in this browser.", 'err');
+      }
+    });
+  }
+  function uncover() {
+    if (!frame || !covered) return;
+    if (savedStyle) frame.setAttribute('style', savedStyle); else frame.removeAttribute('style');
+    covered = false;
+  }
+  function enterFs(quiet = false) {
+    if (!fsOk || fsActive()) return;
     const req = target.requestFullscreen || target.webkitRequestFullscreen;
-    try {
-      const p = req.call(target, { navigationUI: 'hide' });
-      p?.catch?.((err) => toast(`Full screen is not allowed here: ${err.message || err}`, 'err'));
-    } catch (err) { toast(`Full screen is not allowed here: ${err.message || err}`, 'err'); }
+    const fail = (err) => { if (!quiet && !frame) toast(`Full screen is not allowed here: ${err.message || err}`, 'err'); };
+    try { req.call(target, { navigationUI: 'hide' })?.catch?.(fail); } catch (err) { fail(err); }
   }
-  function exit() { (doc.exitFullscreen || doc.webkitExitFullscreen)?.call(doc); }
-  function sync(save = true) {
-    const on = active();
+  function exitFs() { if (fsActive()) (doc.exitFullscreen || doc.webkitExitFullscreen)?.call(doc); }
+  const isOn = () => (frame ? covered : fsActive());
+  function sync() {
+    const on = isOn();
     btn.firstElementChild.className = `mdi ${on ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'}`;
-    btn.title = on ? 'Leave full screen' : "Full screen: hide Home Assistant's title bar and sidebar";
-    if (save && !leaving) store(on); // a reload also ends full screen; keep the wish for the next tap then
+    btn.title = on ? "Leave full screen: show Home Assistant's title bar and sidebar"
+      : "Full screen: hide Home Assistant's title bar and sidebar";
   }
+  function turnOn() { cover(); enterFs(); store(true); sync(); }
+  function turnOff() { exitFs(); uncover(); store(false); sync(); }
 
-  if (!enabled) return { active };
+  if (!frame && !fsOk) return { isOn };
   btn.hidden = false;
-  btn.addEventListener('click', () => (active() ? exit() : enter()));
-  const onChange = () => sync();
+  btn.addEventListener('click', () => (isOn() ? turnOff() : turnOn()));
+  const onChange = () => {
+    // Directly opened: leaving browser full screen (Esc) means off. In HA the cover stays.
+    if (!frame && !fsActive() && !document.hidden) store(false);
+    sync();
+  };
   doc.addEventListener('fullscreenchange', onChange);
   doc.addEventListener('webkitfullscreenchange', onChange);
   window.addEventListener('pagehide', () => {
-    leaving = true;
     doc.removeEventListener('fullscreenchange', onChange);
     doc.removeEventListener('webkitfullscreenchange', onChange);
   });
-  sync(false);
-  if (wanted() && !active()) {
-    const again = (e) => {
-      document.removeEventListener('pointerup', again, true);
-      if (!active() && !e.target.closest?.('#btn-full')) enter();
-    };
-    document.addEventListener('pointerup', again, true);
+  if (wanted()) {
+    cover();
+    if (fsOk && !fsActive()) {
+      const again = (e) => {
+        document.removeEventListener('pointerup', again, true);
+        if (wanted() && !e.target.closest?.('#btn-full')) enterFs(true);
+      };
+      document.addEventListener('pointerup', again, true);
+    }
   }
-  return { active };
+  sync();
+  return { isOn };
 })();
 
 // ===================================================================
