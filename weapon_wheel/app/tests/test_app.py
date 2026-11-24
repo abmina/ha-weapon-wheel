@@ -56,6 +56,15 @@ class BuildModelTests(unittest.TestCase):
         self.assertIsNone(m["devices"]["d_k_fridge"]["integration"])  # entry not known
         self.assertIsNone(m["devices"]["area:living_room"].get("integration"))
 
+    def test_all_devices_and_unplaced_entities_for_custom_homes(self):
+        m = self.build()
+        self.assertEqual(m["all_devices"]["d_k_coffee"]["entities"], ["switch.coffee_machine", "sensor.coffee_machine_energy"])
+        self.assertEqual(m["all_devices"]["d_k_coffee"]["area_id"], "kitchen")
+        unplaced = m["entities"]["sensor.internet_download"]
+        self.assertIsNone(unplaced["node"])
+        self.assertIsNone(unplaced["area_id"])
+        self.assertNotIn("sensor.internet_download", sum((n["entities"] for n in m["devices"].values()), []))
+
     def test_short_names_strip_device_name(self):
         m = self.build()
         self.assertEqual(m["entities"]["sensor.coffee_machine_energy"]["name"], "Energy")
@@ -174,6 +183,13 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         ):
             r = await self.client.post("/api/call", json=body)
             self.assertEqual(r.status, 400, body)
+
+    async def test_custom_home_saved(self):
+        custom = {"enabled": True, "levels": [{"id": "l1", "name": "Main", "level": 0, "outdoor": False}],
+                  "rooms": [{"id": "r1", "name": "Cinema", "icon": "mdi:sofa", "level": "l1", "plan": {"c": 0, "r": 0, "w": 4, "h": 2},
+                             "members": [{"kind": "device", "id": "d_lr_tv", "group": None}], "groups": []}]}
+        r = await self.client.put("/api/layout", json={"custom": custom})
+        self.assertEqual((await r.json())["custom"], custom)
 
     async def test_layout_roundtrip(self):
         layout = {"areas": {"kitchen": {"name": "Cook", "hidden": True}}, "junk": 1, "devices": "bad"}

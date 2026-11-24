@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+- **Custom home.** In *Customize → Home layout*, switch from **Automatic** (built from Home Assistant floors, areas,
+  devices and integrations) to **Custom** and design your own: levels (indoor, underground or outdoor), rooms with any
+  name and icon, any devices or single entities in them (also ones without an area in Home Assistant), and your own
+  groups. When switching you choose to continue your custom home, copy the automatic one, or start empty. You can switch
+  back to Automatic at any time; your custom home is kept.
+- **Edit mode**, like a Home Assistant dashboard: **Edit** on the house puts a pencil on every room card.
+  - **Room card editor** with live preview: name, icon, and what the card shows - any mix, in any order, of
+    temperature, lights on, devices on, doors & windows open, motion, or any entity's live state.
+  - **Floor plan** (custom home): drag rooms to move them and drag their corner to resize them on a grid, so the house
+    looks like your real home. Rooms can't overlap; *Auto-arrange* lays them out again.
+
 ## 0.2.6
 - Devices of the same integration in a room are grouped into one leaf of the room's wheel (for example **Shelly ·
   2 devices**). Opening it shows a wheel with just those devices; from there everything works as before. Rooms where

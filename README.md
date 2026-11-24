@@ -44,6 +44,10 @@ you're at the controls. New devices show up on their own as soon as you assign t
 - **Live** - states update instantly. Changes to areas, devices or floors in Home Assistant appear without a restart.
 - **Customize** - name your house, hide, rename or reorder floors, rooms, devices and entities, move a room to
   another floor, or mark a level as **Outdoor** so its rooms show in a garden next to the house.
+- **Custom home** - not happy with how your Home Assistant areas map to your real home? Switch to a custom home and
+  design your own levels, rooms and groups with any devices or entities, then arrange the rooms on a floor plan.
+- **Edit mode** - like a Home Assistant dashboard: tap the pencil on a room card to choose its name, icon and what it
+  shows (temperature, lights on, devices on, open doors and windows, motion, or any entity), with a live preview.
   You can also right-click a wheel item to hide it, with undo.
 - **Works everywhere** - mouse, keyboard, touch, phones and the Companion app, in light or dark mode
   (it follows your system setting).

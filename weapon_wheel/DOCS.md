@@ -46,6 +46,35 @@ A camera's sidebar has a **Snapshot / Live** switch:
 
 The stream stops as soon as you close the sidebar or pick another entity.
 
+## Edit mode and room cards
+
+Click **Edit** (top right of the house) to edit the dashboard in place, like a Home Assistant dashboard:
+
+- Every room card gets a **pencil**. It opens the card editor with a live preview, where you choose the card's **name**,
+  **icon** (any [Material Design icon](https://pictogrammers.com/library/mdi/), e.g. `sofa`) and what it **shows**: any
+  mix, in any order, of *Temperature* (automatic), *Lights on*, *Devices on*, *Doors & windows open*, *Motion*, or any
+  entity's live state (pick a specific temperature sensor, a humidity sensor, a door…). *Default* goes back to
+  temperature, lights on and motion.
+- In a **custom home** you can also arrange the floor plan: drag a room to move it, drag its blue corner to resize it.
+  Rooms snap to a grid and can't overlap. *Auto-arrange* lays the level out again. Outdoor gardens arrange themselves.
+- **Done** / **Save** leaves edit mode.
+
+## Custom home
+
+By default the house is built automatically from Home Assistant. In **Customize → Home layout → Custom** you design it
+yourself instead. When you switch, choose to **continue** your custom home (if you have one), **copy the automatic
+home** (then change what you like), or **start empty**.
+
+- **Levels**: a name and a number - higher numbers are upstairs, below 0 is underground. Tick **Outdoor** to draw the
+  level as a garden next to the house.
+- **Rooms**: a name, an icon, a level, and what's in them - **Add devices or entities** lets you pick any device or
+  single entity from Home Assistant, including ones without an area. A device brings all its entities; a single entity
+  opens straight away when you select it.
+- **Groups**: make your own groups in a room (they replace the automatic integration groups) and choose each
+  device's group.
+
+Switch back to **Automatic** at any time - your custom home is kept for later.
+
 ## Customize
 
 Click **Customize** (top right) to:

@@ -41,7 +41,7 @@ DEFAULT_OPTIONS = {
     "show_hidden_entities": False,
     "accent_color": "",
 }
-LAYOUT_SECTIONS = ("floors", "areas", "devices", "entities", "settings")
+LAYOUT_SECTIONS = ("floors", "areas", "devices", "entities", "settings", "custom")
 REGISTRY_EVENTS = (
     "area_registry_updated",
     "device_registry_updated",
@@ -212,6 +212,7 @@ def build_model(
     floor_ids = {f["floor_id"] for f in floors}
 
     nodes: dict[str, dict] = {}
+    all_devices: dict[str, dict] = {}
     area_nodes: dict[str, list[str]] = defaultdict(list)
     out_entities: dict[str, dict] = {}
 
@@ -262,18 +263,28 @@ def build_model(
         dev = dev_by_id.get(ent.get("device_id"))
         if dev and dev.get("disabled_by"):
             continue
-        area_id = ent.get("area_id") or (dev or {}).get("area_id")
-        if not area_id or area_id not in area_by_id:
-            continue
-        node = node_for(area_id, dev)
         attrs = st.get("attributes", {})
         full_name = attrs.get("friendly_name") or ent.get("name") or ent.get("original_name") or eid
         short = full_name
-        if not node["virtual"]:
-            dev_name = node["name"]
-            if full_name.lower().startswith(dev_name.lower()) and len(full_name) > len(dev_name):
+        if dev:
+            dev_name = dev.get("name_by_user") or dev.get("name") or ""
+            if dev_name and full_name.lower().startswith(dev_name.lower()) and len(full_name) > len(dev_name):
                 short = full_name[len(dev_name):].strip(" -:_") or full_name
-        out_entities[eid] = {
+            # Every device with its entities, wherever they are - a custom home can use any of them.
+            if dev["id"] not in all_devices:
+                d_integ, d_integ_name = integration_of(dev)
+                all_devices[dev["id"]] = {
+                    "id": dev["id"],
+                    "name": dev_name or "Unnamed device",
+                    "manufacturer": dev.get("manufacturer"),
+                    "model": dev.get("model"),
+                    "integration": d_integ,
+                    "integration_name": d_integ_name,
+                    "area_id": dev.get("area_id") if dev.get("area_id") in area_by_id else None,
+                    "entities": [],
+                }
+            all_devices[dev["id"]]["entities"].append(eid)
+        entry = {
             "entity_id": eid,
             "domain": eid.split(".", 1)[0],
             "name": short,
@@ -281,9 +292,19 @@ def build_model(
             "icon": ent.get("icon") or attrs.get("icon"),
             "device_class": attrs.get("device_class"),
             "entity_category": ent.get("entity_category"),
-            "node": node["id"],
-            "area_id": area_id,
+            "device_id": dev["id"] if dev else None,
+            "node": None,
+            "area_id": None,
         }
+        out_entities[eid] = entry
+        area_id = ent.get("area_id") or (dev or {}).get("area_id")
+        if not area_id or area_id not in area_by_id:
+            continue  # not on the automatic map, but available to a custom home
+        node = node_for(area_id, dev)
+        if node["virtual"]:
+            entry["name"] = full_name
+        entry["node"] = node["id"]
+        entry["area_id"] = area_id
         node["entities"].append(eid)
 
     out_areas = {}
@@ -337,6 +358,7 @@ def build_model(
         "floors": out_floors,
         "areas": out_areas,
         "devices": nodes,
+        "all_devices": all_devices,
         "entities": out_entities,
         "services": out_services,
     }

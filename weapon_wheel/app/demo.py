@@ -172,6 +172,8 @@ LOOSE = [
     ("scene.movie_night", "living_room", "unknown", {"friendly_name": "Movie Night", "icon": "mdi:movie-open"}),
     ("script.good_morning", "master_bedroom", "off", {"friendly_name": "Good Morning", "icon": "mdi:weather-sunset-up"}),
     ("input_boolean.guest_mode", "hallway", "off", {"friendly_name": "Guest Mode", "icon": "mdi:account-multiple"}),
+    # No area in Home Assistant: not on the automatic map, but usable in a custom home.
+    ("sensor.internet_download", None, "312.5", {"friendly_name": "Internet Download", "unit_of_measurement": "Mbit/s", "state_class": "measurement", "icon": "mdi:download-network"}),
 ]
 
 SERVICES: dict[str, list[str]] = {

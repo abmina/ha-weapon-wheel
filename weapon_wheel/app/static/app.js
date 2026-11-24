@@ -89,7 +89,66 @@ const S = {
   houseFocus: -1,
   rooms: [],
 };
-const M = () => S.model;
+/** The structure being shown: the custom home when one is enabled, else the one built from Home Assistant. */
+const M = () => S.view || S.model;
+/** Run fn against the automatic (Home Assistant) structure, whatever is on screen. */
+function withReal(fn) {
+  const saved = S.view;
+  S.view = null;
+  try { return fn(); } finally { S.view = saved; }
+}
+const uid = (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
+
+/**
+ * Turns a custom home definition into the same shape as the model built from Home Assistant
+ * (floors, areas, devices, entities), so the house, wheels and sidebar work unchanged.
+ *   custom = { enabled, levels: [{id, name, level, outdoor, icon}],
+ *              rooms: [{id, name, icon, level, plan: {c, r, w, h} | null,
+ *                       members: [{kind: 'device'|'entity', id, group}], groups: [{id, name, icon}]}] }
+ */
+function buildCustomModel(real, def) {
+  const floors = (def.levels || []).map((l) => ({
+    id: l.id, name: l.name || 'Level', level: Number(l.level) || 0, icon: l.icon || null, outdoor: !!l.outdoor,
+  }));
+  const levelIds = new Set(floors.map((f) => f.id));
+  const areas = {}, devices = {}, entities = { ...real.entities };
+  for (const room of def.rooms || []) {
+    if (!levelIds.has(room.level)) continue;
+    const aid = room.id;
+    areas[aid] = {
+      id: aid, name: room.name || 'Room', icon: room.icon || null, floor_id: room.level,
+      plan: room.plan || null, groups: room.groups || [], devices: [],
+    };
+    for (const m of room.members || []) {
+      let node = null;
+      if (m.kind === 'device') {
+        const d = real.all_devices?.[m.id];
+        if (!d) continue;
+        node = {
+          id: `${aid}/${m.id}`, device_id: m.id, name: d.name, manufacturer: d.manufacturer, model: d.model,
+          integration: d.integration, integration_name: d.integration_name, entities: [...d.entities],
+        };
+      } else {
+        const e = real.entities[m.id];
+        if (!e) continue;
+        node = { id: `${aid}/${m.id}`, device_id: null, name: e.full_name || e.name, single: true, entities: [m.id] };
+      }
+      Object.assign(node, { area_id: aid, virtual: false, group: m.group || null });
+      if (devices[node.id]) continue; // listed twice in the same room
+      devices[node.id] = node;
+      areas[aid].devices.push(node.id);
+      for (const eid of node.entities) {
+        if (entities[eid] && entities[eid].node && devices[entities[eid].node]) continue; // keep its first room
+        entities[eid] = { ...real.entities[eid], node: node.id, area_id: aid };
+      }
+    }
+  }
+  return { ...real, floors, areas, devices, entities, custom: true };
+}
+function refreshView() {
+  const c = S.layout.custom;
+  S.view = c && c.enabled && S.model ? buildCustomModel(S.model, c) : null;
+}
 
 // --- customization lookups --------------------------------------------
 const L = (kind, key) => (S.layout[kind] && S.layout[kind][key]) || {};
@@ -111,9 +170,9 @@ const areaFloor = (aid) => L('areas', aid).floor || M().areas[aid].floor_id;
 /** Rooms placed here are drawn in the garden next to the house instead of inside it. */
 const OUTDOOR = '__outdoor__';
 const OUTDOOR_FLOOR = { id: OUTDOOR, name: 'Outdoor', level: null, icon: 'mdi:tree', outdoor: true };
-const allFloors = () => [...M().floors, OUTDOOR_FLOOR];
+const allFloors = () => (M().custom ? M().floors : [...M().floors, OUTDOOR_FLOOR]);
 /** A level is outdoor if it is the built-in Outdoor level or was marked outdoor in Customize. */
-const isOutdoorFloor = (f) => !!(f.id === OUTDOOR || L('floors', f.id).outdoor);
+const isOutdoorFloor = (f) => !!(f.id === OUTDOOR || f.outdoor || L('floors', f.id).outdoor);
 
 function sortAreas(ids) {
   return [...ids].sort((a, b) => {
@@ -398,7 +457,43 @@ function houseGeometry(allVisible) {
   const ROWH = maxCols === 2 ? 210 : maxCols === 3 ? 170 : 150;
   const bands = [];
   let y = TOP + ROOF;
+  // Custom home: rooms sit on a 12-column grid where you placed them in the floor-plan editor.
+  const PLAN_COLS = 12, PLAN_ROW = 75;
+  const layoutPlanned = (f, x0, x1, under) => {
+    const unitW = (x1 - x0 - 2 * PAD) / PLAN_COLS;
+    const placed = [];
+    const overlaps = (p) => placed.some((q) => p.c < q.c + q.w && q.c < p.c + p.w && p.r < q.r + q.h && q.r < p.r + p.h);
+    const clampPlan = (p) => {
+      const w = clamp(Math.round(p.w) || 4, 1, PLAN_COLS), hgt = Math.max(1, Math.round(p.h) || 2);
+      return { c: clamp(Math.round(p.c) || 0, 0, PLAN_COLS - w), r: Math.max(0, Math.round(p.r) || 0), w, h: hgt };
+    };
+    const firstFit = (w, hgt) => {
+      for (let r = 0; ; r++) for (let c = 0; c + w <= PLAN_COLS; c++) if (!overlaps({ c, r, w, h: hgt })) return { c, r, w, h: hgt };
+    };
+    const planOf = (aid) => {
+      const draft = S.plan?.draft[aid];
+      return draft === 'auto' ? null : (draft || M().areas[aid].plan);
+    };
+    const want = f.areas.map((aid) => ({ aid, plan: planOf(aid) }));
+    for (const x of want.filter((q) => q.plan)) {
+      const p = clampPlan(x.plan);
+      placed.push({ ...(overlaps(p) ? firstFit(p.w, p.h) : p), aid: x.aid });
+    }
+    for (const x of want.filter((q) => !q.plan)) placed.push({ ...firstFit(4, 2), aid: x.aid });
+    const rowsUsed = Math.max(2, ...placed.map((p) => p.r + p.h)) + (S.plan ? 1 : 0); // a spare row to drag into
+    const height = LABEL + rowsUsed * PLAN_ROW + PAD;
+    const gx = x0 + PAD, gy = y + LABEL;
+    const rooms = placed.map((p) => ({
+      aid: p.aid, plan: { c: p.c, r: p.r, w: p.w, h: p.h },
+      x: gx + p.c * unitW + 4, y: gy + p.r * PLAN_ROW + 4, w: p.w * unitW - 8, h: p.h * PLAN_ROW - 8,
+    }));
+    const band = { floor: f, x0, x1, y, h: height, rooms, under, grid: { x: gx, y: gy, unitW, unitH: PLAN_ROW, cols: PLAN_COLS, rows: rowsUsed } };
+    rooms.forEach((r) => { r.band = band; });
+    bands.push(band);
+    y += height;
+  };
   const layoutFloor = (f, x0, x1, under) => {
+    if (M().custom) { layoutPlanned(f, x0, x1, under); return; }
     const n = f.areas.length;
     const rows = Math.max(1, Math.ceil(n / maxCols));
     const perRow = Math.ceil(n / rows);
@@ -458,6 +553,13 @@ function buildHouse() {
   const empty = floors.length === 0;
   $('#empty-house').hidden = !empty;
   $('#house-frame').hidden = empty;
+  if (empty) {
+    const [title, text] = $('#empty-house').querySelectorAll('p');
+    title.textContent = M().custom ? 'Your custom home has no rooms yet.' : 'No rooms found yet.';
+    text.textContent = M().custom
+      ? 'Open Customize to add levels and rooms, and put devices in them.'
+      : 'Create areas (and optionally floors) in Home Assistant, assign devices to them, and they will appear here.';
+  }
   S.rooms = [];
   if (empty) return;
   const g = houseGeometry(floors);
@@ -492,10 +594,20 @@ function buildHouse() {
     const wallCls = b.outdoor ? 'h-garden' : `h-wall ${b.under ? 'under' : ''} ${b.floor.id === '__unassigned__' ? 'annex' : ''}`;
     parts.push(s('rect', { class: wallCls, x: b.x0, y: b.y, width: b.x1 - b.x0, height: b.h, rx: b.outdoor ? 16 : 0 }));
     parts.push(s('text', { class: 'h-floor-label', x: b.x0 + 16, y: b.y + 23 }, floorName(b.floor)));
+    if (S.plan && b.grid) { // dotted grid to snap to
+      const gr = b.grid;
+      const dots = [];
+      for (let r = 0; r <= gr.rows; r++) for (let c = 0; c <= gr.cols; c++) dots.push(`M${gr.x + c * gr.unitW},${gr.y + r * gr.unitH}h0.01`);
+      parts.push(s('path', { class: 'plan-grid', d: dots.join('') }));
+    }
     for (const r of b.rooms) {
       const idx = S.rooms.length;
       const room = s('g', { class: 'room', 'data-area': r.aid, 'data-idx': idx },
-        s('rect', { class: 'r-body', x: r.x, y: r.y, width: r.w, height: r.h, rx: 10 }));
+        s('rect', { class: 'r-body', x: r.x, y: r.y, width: r.w, height: r.h, rx: 10 }),
+        S.plan && r.plan ? s('path', {
+          class: 'r-handle', 'data-handle': idx,
+          d: `M${r.x + r.w - 4},${r.y + r.h - 26}V${r.y + r.h - 4}H${r.x + r.w - 26}Z`,
+        }) : null);
       const px = r.x + r.w - 24, py = r.y + 34;
       const pin = s('g', { class: 'pin', transform: `translate(${px},${py})`, 'data-area': r.aid, 'data-idx': idx },
         s('ellipse', { class: 'p-shadow', cx: 0, cy: 2, rx: 9, ry: 3 }),
@@ -519,14 +631,190 @@ function buildHouse() {
     }, ico(roomIcon(r.aid)), h('div', { class: 'name' }, areaName(r.aid)), h('div', { class: 'chips' }));
     r.label = el;
     return el;
-  }));
+  }), ...(S.plan ? S.rooms.map((r) => h('button', {
+    class: 'card-edit', title: `Edit the ${areaName(r.aid)} card`, 'data-area': r.aid,
+    style: `left:${((r.x + r.w - 22) / g.W) * 100}%;top:${((r.y + 22) / g.H) * 100}%`,
+    onclick: () => openCardEditor(r.aid),
+  }, ico('mdi:pencil'))) : []));
+  $('#house').classList.toggle('plan-edit', !!S.plan);
   sizeHouse();
   paintHouse();
 }
 
+// ===================================================================
+// Floor-plan editor (custom home): drag rooms to move them, drag the corner to resize
+// ===================================================================
+/** Edit mode on the house: a pencil on every room card; in a custom home also drag/resize rooms. */
+function startPlanEdit() {
+  if (S.nav.level !== 'house') return;
+  S.plan = { draft: {} };
+  hideTooltip();
+  setHouseFocus(-1, true);
+  document.body.classList.add('plan-editing');
+  buildHouse();
+  renderPlanBar();
+  updatePlanButton();
+}
+async function endPlanEdit(save) {
+  if (!S.plan) return;
+  if (save && M().custom) {
+    const placed = Object.fromEntries(S.rooms.filter((r) => r.plan).map((r) => [r.aid, r.plan]));
+    for (const room of S.layout.custom.rooms) if (placed[room.id]) room.plan = placed[room.id];
+    S.plan = null;
+    await saveLayout();
+    toast('Saved');
+  }
+  S.plan = null;
+  document.body.classList.remove('plan-editing');
+  renderPlanBar();
+  buildHouse();
+  updatePlanButton();
+}
+function renderPlanBar() {
+  const bar = $('#plan-bar');
+  bar.hidden = !S.plan;
+  if (!S.plan) { sizeHouse(); return; }
+  const custom = M().custom;
+  bar.replaceChildren(...[
+    h('span', { class: 'muted' }, ico('mdi:pencil'), custom
+      ? ' Tap the pencil on a room to edit its card. Drag a room to move it, drag its corner to resize.'
+      : ' Tap the pencil on a room to edit its card.'),
+    custom ? act('Auto-arrange', 'mdi:auto-fix', () => {
+      for (const r of S.rooms) if (r.plan) S.plan.draft[r.aid] = 'auto';
+      buildHouse();
+      for (const r of S.rooms) if (r.plan) S.plan.draft[r.aid] = r.plan; // keep the arranged result
+    }, 'small') : null,
+    act('Customize…', 'mdi:tune-variant', () => { endPlanEdit(false); openEditor(); }, 'small'),
+    custom ? act('Cancel', null, () => endPlanEdit(false), 'small') : null,
+    act(custom ? 'Save' : 'Done', custom ? 'mdi:content-save' : 'mdi:check', () => endPlanEdit(true), 'small primary'),
+  ].filter(Boolean));
+  sizeHouse();
+}
+/** Like a Home Assistant card editor: name, icon and what the card shows, with a live preview. */
+function openCardEditor(aid) {
+  W = JSON.parse(JSON.stringify(S.layout));
+  W.settings ||= {};
+  const custom = !!M().custom;
+  const room = custom ? W.custom.rooms.find((r) => r.id === aid) : null;
+  const ed = $('#card-editor');
+  // Compute things as they would look with the unsaved changes in W.
+  const withDraft = (fn) => {
+    const saved = S.layout;
+    S.layout = W;
+    refreshView();
+    try { return fn(); } finally { S.layout = saved; refreshView(); }
+  };
+  const preview = h('div', { class: 'card-preview' });
+  const drawPreview = () => withDraft(() => {
+    const st = roomStats(aid);
+    preview.replaceChildren(
+      h('div', { class: `room-label preview ${st.lights ? 'lit' : ''}` },
+        ico(roomIcon(aid)), h('div', { class: 'name' }, areaName(aid)),
+        h('div', { class: 'chips' }, st.chips.map((c) => h('span', {}, ico(c.icon), c.text)))));
+  });
+  const nameIn = textIn(custom ? room.name : wget('areas', aid).name || '', (v) => {
+    if (custom) room.name = v || 'Room'; else wset('areas', aid, { name: v });
+    drawPreview();
+  }, custom ? 'Room name' : withReal(() => M().areas[aid]?.name || 'Room name'));
+  const iconNow = custom ? room.icon : wget('areas', aid).icon;
+  const iconIn = textIn((iconNow || '').replace(/^mdi:/, ''), (v) => {
+    const icon = v ? (v.includes(':') ? v : `mdi:${v}`) : '';
+    if (custom) room.icon = icon; else wset('areas', aid, { icon });
+    drawPreview();
+  }, 'automatic, or e.g. sofa', 'icon-in');
+  const entities = M().areas[aid].devices.flatMap((nid) => M().devices[nid].entities);
+  const close = () => { ed.hidden = true; W = null; };
+  ed.replaceChildren(h('div', { class: 'modal-card card-dialog', role: 'dialog', 'aria-label': 'Edit room card' },
+    h('div', { class: 'modal-head' }, h('h2', {}, `${areaName(aid)} card`),
+      h('button', { class: 'sb-close', onclick: close, title: 'Close' }, ico('mdi:close'))),
+    h('div', { class: 'modal-body card-body' },
+      h('div', { class: 'card-form' },
+        h('label', { class: 'field' }, h('span', {}, 'Name'), nameIn),
+        h('label', { class: 'field' }, h('span', {}, 'Icon'), iconIn,
+          h('a', { href: 'https://pictogrammers.com/library/mdi/', target: '_blank', rel: 'noopener', class: 'muted' }, 'Browse icons')),
+        h('div', { class: 'field' }, h('span', {}, 'Shows'),
+          statusEditor(aid, entities, drawPreview),
+          h('p', { class: 'muted' }, 'Add summaries (temperature, lights on, devices on, doors & windows open, motion) or any entity to show its live state. Use ‹ to reorder.'))),
+      h('div', { class: 'card-side' }, h('span', { class: 'muted' }, 'Preview'), preview)),
+    h('div', { class: 'modal-foot' },
+      h('span', { class: 'spacer' }),
+      act('Cancel', null, close, 'small'),
+      act('Save', 'mdi:content-save', async () => {
+        // Stay in edit mode, and keep room positions dragged but not yet saved.
+        if (custom && S.plan) {
+          for (const def of W.custom.rooms) if (S.plan.draft[def.id] && S.plan.draft[def.id] !== 'auto') def.plan = S.plan.draft[def.id];
+        }
+        S.layout = W;
+        close();
+        await saveLayout();
+        buildHouse();
+        toast('Card saved');
+      }, 'small primary'))));
+  ed.hidden = false;
+  drawPreview();
+  nameIn.focus();
+}
+
+function updatePlanButton() {
+  $('#btn-plan').hidden = !(M() && S.nav.level === 'house' && !S.plan);
+}
+const svgPoint = (svg, e) => {
+  const p = svg.createSVGPoint();
+  p.x = e.clientX; p.y = e.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+};
+let planDrag = null;
+$('#house').addEventListener('pointerdown', (e) => {
+  if (!S.plan) return;
+  const handle = e.target.closest('[data-handle]');
+  const t = handle || e.target.closest('g.room');
+  const r = t && S.rooms[+(handle ? handle.dataset.handle : t.dataset.idx)];
+  if (!r || !r.plan) return;
+  e.preventDefault();
+  $('#house').setPointerCapture(e.pointerId);
+  planDrag = { mode: handle ? 'resize' : 'move', aid: r.aid, floor: r.band.floor.id, start: svgPoint($('#house'), e), plan: { ...r.plan }, grid: r.band.grid };
+});
+$('#house').addEventListener('pointermove', (e) => {
+  if (!planDrag) return;
+  const d = planDrag, gr = d.grid;
+  const p = svgPoint($('#house'), e);
+  const dc = Math.round((p.x - d.start.x) / gr.unitW), dr = Math.round((p.y - d.start.y) / gr.unitH);
+  const next = { ...d.plan };
+  if (d.mode === 'move') {
+    next.c = clamp(d.plan.c + dc, 0, gr.cols - d.plan.w);
+    next.r = clamp(d.plan.r + dr, 0, gr.rows - 1);
+  } else {
+    next.w = clamp(d.plan.w + dc, 1, gr.cols - d.plan.c);
+    next.h = clamp(d.plan.h + dr, 1, gr.rows - d.plan.r + 1);
+  }
+  const cur = S.rooms.find((r) => r.aid === d.aid)?.plan;
+  if (!cur || (cur.c === next.c && cur.r === next.r && cur.w === next.w && cur.h === next.h)) return;
+  const others = S.rooms.filter((r) => r.plan && r.aid !== d.aid && r.band.floor.id === d.floor);
+  const hit = others.some(({ plan: q }) => next.c < q.c + q.w && q.c < next.c + next.w && next.r < q.r + q.h && q.r < next.r + next.h);
+  if (hit) return; // rooms can't overlap
+  for (const r of others) S.plan.draft[r.aid] ||= r.plan; // pin the others where they are
+  S.plan.draft[d.aid] = next;
+  buildHouse();
+});
+const endDrag = () => { planDrag = null; };
+$('#house').addEventListener('pointerup', endDrag);
+$('#house').addEventListener('pointercancel', endDrag);
+
+/** What a room card can show. Rooms without a choice show DEFAULT_STATUS. */
+const STATUS_SUMMARIES = {
+  temp: { label: 'Temperature (automatic)', icon: 'mdi:thermometer' },
+  lights: { label: 'Lights on', icon: 'mdi:lightbulb-on' },
+  active: { label: 'Devices on', icon: 'mdi:power' },
+  open: { label: 'Doors & windows open', icon: 'mdi:door-open' },
+  motion: { label: 'Motion', icon: 'mdi:motion-sensor' },
+};
+const DEFAULT_STATUS = [{ kind: 'temp' }, { kind: 'lights' }, { kind: 'motion' }];
+const roomStatus = (aid) => (Array.isArray(L('areas', aid).status) ? L('areas', aid).status : DEFAULT_STATUS);
+const OPENING_CLASSES = ['door', 'window', 'opening', 'garage_door'];
+
 function roomStats(aid) {
   const nodes = visibleNodes(aid);
-  let lights = 0, active = 0, temp = null, motion = false;
+  let lights = 0, active = 0, temp = null, motion = false, open = 0;
   for (const nid of nodes) {
     for (const eid of visibleEntities(nid)) {
       if (category(eid)) continue;
@@ -541,9 +829,23 @@ function roomStats(aid) {
         temp = `${fmtNum(st.attributes.current_temperature)}°`;
       }
       if (d === 'binary_sensor' && ['motion', 'occupancy', 'presence'].includes(st.attributes.device_class) && st.state === 'on') motion = true;
+      if (d === 'binary_sensor' && OPENING_CLASSES.includes(st.attributes.device_class) && st.state === 'on') open++;
+      if (d === 'cover' && (st.state === 'open' || st.state === 'opening')) open++;
     }
   }
-  return { devices: nodes.length, leaves: roomItems(aid).length, lights, active, temp, motion };
+  const values = { temp, lights, active, open, motion };
+  // The chips on the room card, in the order the user chose.
+  const chips = [];
+  for (const item of roomStatus(aid)) {
+    if (item.kind === 'entity') {
+      if (S.states[item.id]) chips.push({ icon: entityIcon(item.id), text: stateLabel(item.id), eid: item.id });
+    } else if (STATUS_SUMMARIES[item.kind]) {
+      const v = values[item.kind];
+      if (!v) continue; // nothing to report (0 lights on, no motion, no temperature)
+      chips.push({ icon: STATUS_SUMMARIES[item.kind].icon, text: item.kind === 'motion' ? '' : String(v) });
+    }
+  }
+  return { devices: nodes.length, leaves: roomItems(aid).length, lights, active, temp, motion, open, chips };
 }
 
 function paintHouse() {
@@ -557,11 +859,7 @@ function paintHouse() {
     r.pin.querySelector('.p-count').textContent = st.leaves; // what the room's wheel will show
     r.label.classList.toggle('lit', st.lights > 0);
     r.label.classList.toggle('empty', empty);
-    const chips = [];
-    if (st.temp) chips.push(h('span', {}, ico('mdi:thermometer'), st.temp));
-    if (st.lights) chips.push(h('span', {}, ico('mdi:lightbulb-on'), st.lights));
-    if (st.motion) chips.push(h('span', {}, ico('mdi:motion-sensor')));
-    r.label.querySelector('.chips').replaceChildren(...chips);
+    r.label.querySelector('.chips').replaceChildren(...st.chips.map((c) => h('span', { title: c.eid ? entName(c.eid) : null }, ico(c.icon), c.text)));
   }
 }
 
@@ -570,7 +868,9 @@ function sizeHouse() {
   if (!g) return;
   const stage = $('#stage');
   const availW = stage.clientWidth * 0.96;
-  const availH = stage.clientHeight - 24;
+  const bar = S.plan ? $('#plan-bar').offsetHeight + 20 : 0; // keep the house clear of the plan toolbar
+  houseView.style.paddingTop = bar ? `${bar}px` : '';
+  const availH = stage.clientHeight - 24 - bar;
   const w = Math.min(availW, availH * (g.W / g.H), 1300 * (g.W / HW));
   const frame = $('#house-frame');
   frame.style.width = `${w}px`;
@@ -595,6 +895,7 @@ function setHouseFocus(idx, fromPointer = false) {
     st.lights ? h('div', { class: 'row' }, 'Lights on', h('b', {}, st.lights)) : null,
     st.active ? h('div', { class: 'row' }, 'Active', h('b', {}, st.active)) : null,
     st.temp ? h('div', { class: 'row' }, 'Temperature', h('b', {}, st.temp)) : null,
+    st.open ? h('div', { class: 'row' }, 'Open', h('b', {}, st.open)) : null,
     st.motion ? h('div', { class: 'row' }, 'Motion', h('b', {}, 'Detected')) : null,
   ].filter(Boolean));
   tip.hidden = false;
@@ -607,11 +908,13 @@ function setHouseFocus(idx, fromPointer = false) {
 function hideTooltip() { $('#tooltip').hidden = true; }
 
 $('#house').addEventListener('pointerover', (e) => {
+  if (S.plan) return;
   const t = e.target.closest('[data-idx]');
   if (t) setHouseFocus(+t.dataset.idx, true);
 });
 $('#house').addEventListener('pointerleave', () => { setHouseFocus(-1, true); });
 $('#house').addEventListener('click', (e) => {
+  if (S.plan) return;
   const t = e.target.closest('[data-idx]');
   if (!t) return;
   const r = S.rooms[+t.dataset.idx];
@@ -865,6 +1168,15 @@ const isGroupId = (id) => typeof id === 'string' && id.startsWith(GROUP);
 /** A room's devices, with 2+ devices of the same integration folded into one group. */
 function roomGroups(aid) {
   const nodes = visibleNodes(aid);
+  if (M().custom) { // groups you made yourself
+    const defs = new Set((M().areas[aid]?.groups || []).map((g) => g.id));
+    const groups = {}, loose = [];
+    for (const nid of nodes) {
+      const gid = M().devices[nid].group;
+      if (gid && defs.has(gid)) (groups[gid] ||= []).push(nid); else loose.push(nid);
+    }
+    return { groups, loose };
+  }
   if (setting('noGrouping')) return { groups: {}, loose: nodes };
   const byIntegration = {};
   for (const nid of nodes) {
@@ -876,6 +1188,14 @@ function roomGroups(aid) {
   // A room that would become a single group gains nothing from grouping - show its devices directly.
   if (Object.keys(groups).length === 1 && grouped.size === nodes.length) return { groups: {}, loose: nodes };
   return { groups, loose: nodes.filter((n) => !grouped.has(n)) };
+}
+/** Name and icon of a group leaf: an integration, or one of your own groups. */
+function groupInfo(aid, key) {
+  if (M().custom) {
+    const g = (M().areas[aid]?.groups || []).find((x) => x.id === key);
+    return { name: g?.name || 'Group', icon: g?.icon || 'mdi:folder-outline' };
+  }
+  return { name: integrationName(key), icon: 'mdi:puzzle-outline' };
 }
 function integrationName(integ) {
   const d = Object.values(M().devices).find((x) => x.integration === integ);
@@ -900,9 +1220,9 @@ function roomItems(aid) {
     const on = ids.filter((n) => mainEntities(n).some(isActive)).length;
     items.push({
       id: GROUP + integ,
-      label: integrationName(integ),
-      icon: 'mdi:puzzle-outline',
-      sub: `${ids.length} devices${on ? ` · ${on} on` : ''}`,
+      label: groupInfo(aid, integ).name,
+      icon: groupInfo(aid, integ).icon,
+      sub: `${ids.length} device${ids.length === 1 ? '' : 's'}${on ? ` · ${on} on` : ''}`,
       active: on > 0,
     });
   }
@@ -924,7 +1244,7 @@ function deviceWheelOpts(aid, selectedId = null) {
   const st = roomStats(aid);
   const g = S.nav.group;
   const center = g
-    ? { icon: 'mdi:puzzle-outline', title: integrationName(g), sub: `${groupItems(aid, g).length} devices in ${areaName(aid)}` }
+    ? { icon: groupInfo(aid, g).icon, title: groupInfo(aid, g).name, sub: `${groupItems(aid, g).length} devices in ${areaName(aid)}` }
     : { icon: roomIcon(aid), title: areaName(aid), sub: `${st.devices} device${st.devices === 1 ? '' : 's'}${st.temp ? ` · ${st.temp}` : ''}` };
   return {
     center,
@@ -969,6 +1289,13 @@ async function enterArea(aid, room) {
 }
 
 async function enterDevice(nid) {
+  if (M().devices[nid]?.single) { // a single entity placed in a custom room
+    closeSidebar();
+    openEntity(M().devices[nid].entities[0]);
+    wheel.opts.selectedId = nid;
+    wheel.paintClasses();
+    return;
+  }
   const ctl = controlEntities(nid);
   // Nothing to operate (e.g. a temperature sensor): just show its readings in the sidebar.
   // One control and "skip" turned on: go straight to it.
@@ -1083,6 +1410,7 @@ function closeSidebar() {
 }
 
 function renderCrumbs() {
+  updatePlanButton();
   const c = $('#crumbs');
   document.title = houseName();
   const parts = [[houseName(), () => guard(goHouse)]];
@@ -1093,7 +1421,7 @@ function renderCrumbs() {
     if (f && (isOutdoorFloor(f) || M().floors.length > 1)) parts.push([floorName(f), () => guard(goHouse)]);
     const inside = n.level === 'entities' || n.group || n.panel;
     parts.push([areaName(n.areaId), inside ? () => guard(goRoom) : null]);
-    if (n.group) parts.push([integrationName(n.group), n.level === 'entities' ? () => guard(leaveDevice) : (n.panel ? closeSidebar : null)]);
+    if (n.group) parts.push([groupInfo(n.areaId, n.group).name, n.level === 'entities' ? () => guard(leaveDevice) : (n.panel ? closeSidebar : null)]);
   }
   const dev = n.nodeId || n.panel;
   if (dev && M().devices[dev]) parts.push([devName(dev), n.entityId ? (n.panel ? backToPanel : closeSidebar) : null]);
@@ -1126,6 +1454,7 @@ async function saveLayout() {
   } catch (err) {
     toast(`Could not save: ${err.message}`, 'err');
   }
+  refreshView();
 }
 
 /** Re-render whatever view is active after model/layout changes. */
@@ -1690,45 +2019,387 @@ function wset(kind, key, patch) {
   else delete W[kind][key];
 }
 
+let edSearch = null;
+let edTree = null;
+const edOpen = new Set(); // custom rooms that are unfolded in the editor
+const stopKeys = (el) => { el.addEventListener('keydown', (e) => e.stopPropagation()); return el; };
+
 function openEditor() {
   W = JSON.parse(JSON.stringify(S.layout));
   W.settings ||= {};
   const ed = $('#editor');
-  const search = h('input', { class: 'txt', type: 'search', placeholder: 'Filter rooms, devices, entities…' });
-  const tree = h('div', { class: 'tree' });
-  const settings = settingsBlock();
-  search.addEventListener('input', () => renderTree(tree, search.value.trim().toLowerCase()));
-  search.addEventListener('keydown', (e) => e.stopPropagation());
+  edSearch = stopKeys(h('input', { class: 'txt', type: 'search', placeholder: 'Filter rooms, devices, entities…' }));
+  edTree = h('div', { class: 'tree' });
+  edSearch.addEventListener('input', () => renderTree(edTree, edSearch.value.trim().toLowerCase()));
   ed.replaceChildren(h('div', { class: 'modal-card', role: 'dialog', 'aria-label': 'Customize dashboard' },
-    h('div', { class: 'modal-head' }, h('h2', {}, 'Customize'), search,
+    h('div', { class: 'modal-head' }, h('h2', {}, 'Customize'), edSearch,
       h('button', { class: 'sb-close', onclick: closeEditor, title: 'Close' }, ico('mdi:close'))),
-    h('div', { class: 'modal-body' }, settings,
-      h('p', { class: 'muted', style: 'margin:4px 0 8px;font-size:13px' },
-        'Use the eye to show or hide items. Type a name to rename; leave it empty to use the Home Assistant name. Mark a level as Outdoor to show its rooms in a garden outside the house, or move single rooms to the Outdoor level. All of this only affects this dashboard.'),
-      tree),
+    h('div', { class: 'modal-body' }, settingsBlock(), h('div', { id: 'ed-mode' }), h('div', { id: 'ed-main' })),
     h('div', { class: 'modal-foot' },
       act('Reset everything', 'mdi:restore', () => {
-        if (confirm('Remove all customizations?')) { W = { settings: {} }; openEditorRefresh(tree, search); }
+        if (confirm('Remove all customizations, including your custom home?')) {
+          W = { settings: {} };
+          $('.settings', $('#editor')).replaceWith(settingsBlock());
+          renderEditorMain();
+        }
       }, 'small danger'),
       h('span', { class: 'spacer' }),
       act('Cancel', null, closeEditor, 'small'),
       act('Save', 'mdi:content-save', async () => {
+        const wasCustom = !!S.layout.custom?.enabled, isCustom = !!W.custom?.enabled;
         S.layout = W;
         await saveLayout();
         closeEditor();
+        if (wasCustom || isCustom) await guard(goHouse); // the whole structure may have changed
         rerenderAll();
         toast('Customization saved');
       }, 'small primary'))));
   ed.hidden = false;
-  renderTree(tree, '');
+  renderEditorMain();
+}
+
+/** Body of the editor: the automatic home's tree, or the custom home editor. */
+function renderEditorMain() {
+  const custom = !!W.custom?.enabled;
+  $('#ed-mode').replaceChildren(modeSwitch(custom));
+  edSearch.hidden = custom;
+  if (custom) {
+    $('#ed-main').replaceChildren(customEditor());
+  } else {
+    $('#ed-main').replaceChildren(
+      h('p', { class: 'muted', style: 'margin:4px 0 8px;font-size:13px' },
+        'Use the eye to show or hide items. Type a name to rename; leave it empty to use the Home Assistant name. Mark a level as Outdoor to show its rooms in a garden outside the house, or move single rooms to the Outdoor level. All of this only affects this dashboard.'),
+      edTree);
+    renderTree(edTree, edSearch.value.trim().toLowerCase());
+  }
+}
+
+function modeSwitch(custom) {
+  return h('div', { class: 'mode-row' },
+    h('span', { class: 'mode-label' }, 'Home layout'),
+    h('div', { class: 'seg' },
+      h('button', { class: custom ? '' : 'active', onclick: () => { if (custom) { W.custom.enabled = false; renderEditorMain(); } } },
+        ico('mdi:home-automation'), 'Automatic'),
+      h('button', { class: custom ? 'active' : '', onclick: () => { if (!custom) chooseCustomStart(); } },
+        ico('mdi:pencil-ruler'), 'Custom')),
+    h('span', { class: 'muted' }, custom
+      ? 'Your own levels, rooms and groups. Arrange the rooms with Floor plan on the house.'
+      : 'Built from Home Assistant floors, areas, devices and integrations.'));
+}
+
+function chooseCustomStart() {
+  const has = W.custom && ((W.custom.rooms || []).length || (W.custom.levels || []).length);
+  const pick = (make) => { W.custom = { ...make(), enabled: true }; renderEditorMain(); };
+  const card = (icon, title, text, fn) => h('button', { class: 'choice', onclick: fn }, ico(icon), h('b', {}, title), h('span', { class: 'muted' }, text));
+  $('#ed-main').replaceChildren(h('div', { class: 'start-choice' },
+    h('h3', {}, 'Start your custom home'),
+    h('div', { class: 'choices' },
+      has ? card('mdi:history', 'Continue my custom home', `${W.custom.levels.length} levels, ${W.custom.rooms.length} rooms`,
+        () => pick(() => W.custom)) : null,
+      card('mdi:content-copy', 'Copy the automatic home', 'Start from your current levels, rooms, devices and groups, then change what you like.',
+        () => pick(copyAutoHome)),
+      card('mdi:file-outline', 'Start empty', 'One empty level. Add every room and device yourself.',
+        () => pick(() => ({ levels: [{ id: uid('lvl'), name: 'Ground floor', level: 0, outdoor: false }], rooms: [] })))),
+    has ? h('p', { class: 'muted' }, 'Copying or starting empty replaces your current custom home when you save.') : null,
+    act('Cancel', null, renderEditorMain, 'small')));
+}
+
+/** A custom home that looks exactly like the automatic one right now. */
+function copyAutoHome() {
+  return withReal(() => {
+    const levels = [], rooms = [];
+    for (const f of visibleFloors()) {
+      const lid = uid('lvl');
+      levels.push({ id: lid, name: floorName(f), level: f.level ?? 0, outdoor: !!f.outdoor, icon: f.icon || null });
+      for (const aid of f.areas) {
+        const { groups } = roomGroups(aid);
+        const groupDefs = [], groupOf = {};
+        for (const [key, ids] of Object.entries(groups)) {
+          const id = uid('grp');
+          groupDefs.push({ id, name: groupInfo(aid, key).name, icon: null });
+          for (const nid of ids) groupOf[nid] = id;
+        }
+        const members = [];
+        for (const nid of visibleNodes(aid)) {
+          const d = M().devices[nid];
+          const group = groupOf[nid] || null;
+          // A whole device - unless only some of its entities are in this room.
+          if (d.device_id && !nid.includes('@')) members.push({ kind: 'device', id: d.device_id, group });
+          else for (const eid of visibleEntities(nid)) members.push({ kind: 'entity', id: eid, group });
+        }
+        const id = uid('room');
+        rooms.push({ id, name: areaName(aid), icon: roomIcon(aid), level: lid, plan: null, members, groups: groupDefs });
+        if (Array.isArray(L('areas', aid).status)) wset('areas', id, { status: L('areas', aid).status });
+      }
+    }
+    return { levels, rooms };
+  });
+}
+
+/**
+ * "Room card shows" editor. `roomEntities` are the entity ids in the room (listed first);
+ * the choice is stored as an ordered list in W.areas[aid].status.
+ */
+function statusEditor(aid, roomEntities, onChange = null) {
+  const box = h('div', { class: 'status-ed' });
+  const current = () => (Array.isArray(wget('areas', aid).status) ? wget('areas', aid).status : DEFAULT_STATUS);
+  const save = (list) => { wset('areas', aid, { status: list }); draw(); onChange?.(); };
+  const label = (item) => (item.kind === 'entity'
+    ? (S.model.entities[item.id]?.full_name || item.id) : STATUS_SUMMARIES[item.kind]?.label || item.kind);
+  const icon = (item) => (item.kind === 'entity' ? withReal(() => entityIcon(item.id)) : STATUS_SUMMARIES[item.kind]?.icon);
+  const draw = () => {
+    const list = current();
+    const has = (it) => list.some((x) => x.kind === it.kind && x.id === it.id);
+    const inRoom = new Set(roomEntities);
+    const others = Object.values(S.model.entities)
+      .filter((e) => !inRoom.has(e.entity_id) && ['sensor', 'binary_sensor', 'climate', 'weather'].includes(e.domain) && !e.entity_category)
+      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+    const opt = (value, text, disabled) => { const o = h('option', { value }, text); o.disabled = !!disabled; return o; };
+    const add = h('select', { title: 'Add to the room card' },
+      opt('', '+ Add…'),
+      h('optgroup', { label: 'Summaries' }, Object.entries(STATUS_SUMMARIES).map(([k, v]) => opt(`s:${k}`, v.label, has({ kind: k })))),
+      roomEntities.length ? h('optgroup', { label: 'Entities in this room' },
+        roomEntities.map((eid) => opt(`e:${eid}`, S.model.entities[eid]?.full_name || eid, has({ kind: 'entity', id: eid })))) : null,
+      others.length ? h('optgroup', { label: 'Other sensors' },
+        others.map((e) => opt(`e:${e.entity_id}`, e.full_name || e.entity_id, has({ kind: 'entity', id: e.entity_id })))) : null);
+    add.addEventListener('change', () => {
+      const v = add.value;
+      if (!v) return;
+      save([...current(), v.startsWith('s:') ? { kind: v.slice(2) } : { kind: 'entity', id: v.slice(2) }]);
+    });
+    box.replaceChildren(...[
+      h('span', { class: 'status-title' }, ico('mdi:card-text-outline'), 'Room card shows'),
+      list.length ? null : h('span', { class: 'muted' }, 'nothing'),
+      ...list.map((item, i) => h('span', { class: 'status-chip' }, ico(icon(item)), label(item),
+        i ? h('button', { title: 'Move left', onclick: () => { const l = [...list]; [l[i - 1], l[i]] = [l[i], l[i - 1]]; save(l); } }, ico('mdi:chevron-left')) : null,
+        h('button', { title: 'Remove', onclick: () => save(list.filter((_, k) => k !== i)) }, ico('mdi:close')))),
+      add,
+      Array.isArray(wget('areas', aid).status)
+        ? h('button', { class: 'link-btn', title: 'Back to temperature, lights on and motion', onclick: () => { wset('areas', aid, { status: null }); draw(); onChange?.(); } }, 'Default')
+        : null,
+    ].filter(Boolean));
+  };
+  draw();
+  return box;
+}
+
+function textIn(value, onChange, placeholder, cls = '') {
+  const el = stopKeys(h('input', { class: `txt ${cls}`, type: 'text', placeholder }));
+  el.value = value || '';
+  el.addEventListener('input', () => onChange(el.value.trim()));
+  return el;
+}
+function selectIn(options, value, onChange, title = '') {
+  const el = h('select', { title }, options.map(([v, label]) => {
+    const o = h('option', { value: v }, label);
+    o.selected = v === value;
+    return o;
+  }));
+  el.addEventListener('change', () => onChange(el.value));
+  return el;
+}
+
+function customEditor() {
+  const C = W.custom;
+  C.levels ||= []; C.rooms ||= [];
+  const levels = [...C.levels].sort((a, b) => (Number(b.level) || 0) - (Number(a.level) || 0));
+  return h('div', { class: 'custom-ed' },
+    h('p', { class: 'muted', style: 'margin:4px 0 10px;font-size:13px' },
+      'Levels are stacked by their number: higher is upstairs, below 0 is underground. Tick Outdoor to draw a level as a garden next to the house. Rooms are placed automatically; to arrange them like your real home, save and use Floor plan on the house.'),
+    levels.map(levelCard),
+    act('Add level', 'mdi:plus', () => {
+      const top = Math.max(-1, ...C.levels.map((l) => Number(l.level) || 0));
+      C.levels.push({ id: uid('lvl'), name: 'New level', level: top + 1, outdoor: false });
+      renderEditorMain();
+    }, 'small'));
+}
+
+function levelCard(lv) {
+  const C = W.custom;
+  const rooms = C.rooms.filter((r) => r.level === lv.id);
+  const num = stopKeys(h('input', { class: 'txt num', type: 'number', step: 1, title: 'Level number' }));
+  num.value = lv.level;
+  num.addEventListener('change', () => { lv.level = Number(num.value) || 0; renderEditorMain(); });
+  const out = h('input', { type: 'checkbox' });
+  out.checked = !!lv.outdoor;
+  out.addEventListener('change', () => { lv.outdoor = out.checked; renderEditorMain(); });
+  return h('div', { class: `c-level ${lv.outdoor ? 'outdoor' : ''}` },
+    h('div', { class: 'c-head' },
+      ico(lv.outdoor ? 'mdi:tree' : 'mdi:layers-outline', 'ico'),
+      textIn(lv.name, (v) => { lv.name = v || 'Level'; }, 'Level name'),
+      h('label', { class: 'lvl-num' }, 'Level', num),
+      h('label', { class: 'outdoor-switch' }, out, ico('mdi:tree'), 'Outdoor'),
+      h('button', {
+        class: 'eye', title: 'Delete level',
+        onclick: () => {
+          if (rooms.length && !confirm(`Delete “${lv.name}” and its ${rooms.length} room(s)?`)) return;
+          C.levels = C.levels.filter((x) => x !== lv);
+          C.rooms = C.rooms.filter((r) => r.level !== lv.id);
+          renderEditorMain();
+        },
+      }, ico('mdi:delete-outline'))),
+    h('div', { class: 'c-rooms' },
+      rooms.map(roomCard),
+      act('Add room', 'mdi:plus', () => {
+        const room = { id: uid('room'), name: 'New room', icon: '', level: lv.id, plan: null, members: [], groups: [] };
+        C.rooms.push(room);
+        edOpen.add(room.id);
+        renderEditorMain();
+      }, 'small')));
+}
+
+function roomCard(room) {
+  const C = W.custom;
+  const open = edOpen.has(room.id);
+  const preview = ico(room.icon || 'mdi:floor-plan', 'ico');
+  const iconIn = textIn((room.icon || '').replace(/^mdi:/, ''), (v) => {
+    room.icon = v ? (v.includes(':') ? v : `mdi:${v}`) : '';
+    preview.className = `mdi ${mdiClass(room.icon || 'mdi:floor-plan')} ico`;
+  }, 'icon, e.g. sofa', 'icon-in');
+  const toggle = () => { if (open) edOpen.delete(room.id); else edOpen.add(room.id); renderEditorMain(); };
+  const groupsOpts = [['', 'No group'], ...room.groups.map((g) => [g.id, g.name])];
+  return h('div', { class: 'c-room' },
+    h('div', { class: 'c-head' },
+      h('button', { class: 'ord', title: open ? 'Fold' : 'Unfold', onclick: toggle }, ico(open ? 'mdi:chevron-down' : 'mdi:chevron-right')),
+      preview,
+      textIn(room.name, (v) => { room.name = v || 'Room'; }, 'Room name'),
+      iconIn,
+      selectIn(C.levels.map((l) => [l.id, l.name]), room.level, (v) => { room.level = v; room.plan = null; renderEditorMain(); }, 'Level'),
+      h('span', { class: 'orig' }, `${room.members.length} item${room.members.length === 1 ? '' : 's'}`),
+      h('button', {
+        class: 'eye', title: 'Delete room',
+        onclick: () => {
+          if (room.members.length && !confirm(`Delete “${room.name}”?`)) return;
+          C.rooms = C.rooms.filter((r) => r !== room);
+          renderEditorMain();
+        },
+      }, ico('mdi:delete-outline'))),
+    open ? h('div', { class: 'c-room-body' },
+      statusEditor(room.id, room.members.flatMap((m) => (m.kind === 'device' ? S.model.all_devices?.[m.id]?.entities || [] : [m.id]))),
+      room.members.length
+        ? h('div', { class: 'c-members' }, room.members.map((m) => memberRow(room, m, groupsOpts)))
+        : h('p', { class: 'muted' }, 'Nothing in this room yet.'),
+      room.groups.length ? h('div', { class: 'c-groups' }, h('span', { class: 'muted' }, 'Groups'), room.groups.map((g) => groupChip(room, g))) : null,
+      row(
+        act('Add devices or entities', 'mdi:plus', () => openPicker(room), 'small'),
+        act('Add group', 'mdi:folder-plus-outline', () => {
+          room.groups.push({ id: uid('grp'), name: `Group ${room.groups.length + 1}`, icon: null });
+          renderEditorMain();
+        }, 'small'))) : null);
+}
+
+/** Display info for a custom-home member, from the Home Assistant data. */
+function memberInfo(m) {
+  return withReal(() => {
+    if (m.kind === 'device') {
+      const d = S.model.all_devices?.[m.id];
+      if (!d) return { name: 'Missing device', sub: m.id, icon: 'mdi:alert-circle-outline', missing: true };
+      const node = Object.values(S.model.devices).find((n) => n.device_id === m.id);
+      const icon = node ? deviceIcon(node.id) : `mdi:${DOMAIN_ICONS[domainOf(d.entities[0] || 'x.y')] || 'devices'}`;
+      return { name: d.name, sub: [d.integration_name, d.manufacturer, d.model].filter(Boolean).join(' · '), icon };
+    }
+    const e = S.model.entities[m.id];
+    if (!e) return { name: 'Missing entity', sub: m.id, icon: 'mdi:alert-circle-outline', missing: true };
+    return { name: e.full_name || e.name, sub: m.id, icon: entityIcon(m.id) };
+  });
+}
+
+function memberRow(room, m, groupsOpts) {
+  const C = W.custom;
+  const info = memberInfo(m);
+  return h('div', { class: `c-member ${info.missing ? 'missing' : ''}` },
+    ico(info.icon, 'ico'),
+    h('div', { class: 'c-m-text' }, h('span', {}, info.name), h('span', { class: 'muted' }, `${m.kind === 'device' ? 'Device' : 'Entity'} · ${info.sub}`)),
+    room.groups.length ? selectIn(groupsOpts, m.group || '', (v) => { m.group = v || null; }, 'Group') : null,
+    selectIn(C.rooms.map((r) => [r.id, `in ${r.name}`]), room.id, (v) => {
+      const to = C.rooms.find((r) => r.id === v);
+      room.members = room.members.filter((x) => x !== m);
+      if (!to.members.some((x) => x.kind === m.kind && x.id === m.id)) to.members.push({ ...m, group: null });
+      renderEditorMain();
+    }, 'Move to another room'),
+    h('button', { class: 'eye', title: 'Remove from room', onclick: () => { room.members = room.members.filter((x) => x !== m); renderEditorMain(); } }, ico('mdi:close')));
+}
+
+function groupChip(room, g) {
+  const icon = textIn((g.icon || '').replace(/^mdi:/, ''), (v) => { g.icon = v ? (v.includes(':') ? v : `mdi:${v}`) : null; }, 'icon', 'icon-in');
+  return h('div', { class: 'c-group' },
+    ico('mdi:folder-outline', 'ico'),
+    textIn(g.name, (v) => { g.name = v || 'Group'; }, 'Group name'),
+    icon,
+    h('span', { class: 'orig' }, `${room.members.filter((m) => m.group === g.id).length} in group`),
+    h('button', {
+      class: 'eye', title: 'Delete group (its devices stay in the room)',
+      onclick: () => {
+        room.groups = room.groups.filter((x) => x !== g);
+        for (const m of room.members) if (m.group === g.id) m.group = null;
+        renderEditorMain();
+      },
+    }, ico('mdi:delete-outline')));
+}
+
+/** Pick devices and entities from Home Assistant to add to a custom room. */
+function openPicker(room) {
+  const card = $('#editor .modal-card');
+  const chosen = new Set();
+  const key = (m) => `${m.kind}|${m.id}`;
+  const inRoom = new Set(room.members.map(key));
+  const where = {};
+  for (const r of W.custom.rooms) for (const m of r.members) (where[key(m)] ||= []).push(r.name);
+  const realArea = (aid) => S.model.areas[aid]?.name || 'No area';
+  const devices = Object.values(S.model.all_devices || {}).map((d) => ({
+    key: `device|${d.id}`, name: d.name, sub: [realArea(d.area_id), d.integration_name].filter(Boolean).join(' · '),
+    icon: memberInfo({ kind: 'device', id: d.id }).icon,
+  })).sort((a, b) => a.name.localeCompare(b.name));
+  const entities = Object.values(S.model.entities).map((e) => ({
+    key: `entity|${e.entity_id}`, name: e.full_name || e.name, sub: e.entity_id, icon: withReal(() => entityIcon(e.entity_id)),
+  })).sort((a, b) => a.name.localeCompare(b.name));
+  let tab = 'device';
+  const search = stopKeys(h('input', { class: 'txt', type: 'search', placeholder: 'Search…' }));
+  const list = h('div', { class: 'pick-list' });
+  const count = h('span', { class: 'muted' });
+  const tabs = h('div', { class: 'seg' });
+  const render = () => {
+    tabs.replaceChildren(
+      h('button', { class: tab === 'device' ? 'active' : '', onclick: () => { tab = 'device'; render(); } }, ico('mdi:devices'), `Devices (${devices.length})`),
+      h('button', { class: tab === 'entity' ? 'active' : '', onclick: () => { tab = 'entity'; render(); } }, ico('mdi:shape-outline'), `Entities (${entities.length})`));
+    const q = search.value.trim().toLowerCase();
+    const rows = (tab === 'device' ? devices : entities).filter((x) => !q || x.name.toLowerCase().includes(q) || x.sub.toLowerCase().includes(q));
+    list.replaceChildren(...rows.slice(0, 300).map((x) => {
+      const cb = h('input', { type: 'checkbox' });
+      cb.checked = inRoom.has(x.key) || chosen.has(x.key);
+      cb.disabled = inRoom.has(x.key);
+      cb.addEventListener('change', () => { if (cb.checked) chosen.add(x.key); else chosen.delete(x.key); count.textContent = `${chosen.size} selected`; });
+      const elsewhere = (where[x.key] || []).filter((n) => n !== room.name);
+      return h('label', { class: `pick-row ${cb.disabled ? 'done' : ''}` }, cb, ico(x.icon, 'ico'),
+        h('span', { class: 'c-m-text' }, h('span', {}, x.name), h('span', { class: 'muted' }, x.sub)),
+        inRoom.has(x.key) ? h('span', { class: 'badge-in' }, 'in this room') : elsewhere.length ? h('span', { class: 'badge-in' }, `in ${elsewhere.join(', ')}`) : null);
+    }), rows.length > 300 ? h('p', { class: 'muted' }, `${rows.length - 300} more - type to narrow the list.`) : null);
+    if (!rows.length) list.replaceChildren(h('p', { class: 'muted' }, 'Nothing matches.'));
+  };
+  search.addEventListener('input', render);
+  const close = () => overlay.remove();
+  const overlay = h('div', { class: 'picker' },
+    h('div', { class: 'modal-head' }, h('h2', {}, `Add to ${room.name}`), h('button', { class: 'sb-close', onclick: close, title: 'Close' }, ico('mdi:close'))),
+    h('div', { class: 'pick-tools' }, tabs, search),
+    list,
+    h('div', { class: 'modal-foot' }, count, h('span', { class: 'spacer' }), act('Cancel', null, close, 'small'),
+      act('Add', 'mdi:plus', () => {
+        for (const k of chosen) {
+          const [kind, id] = [k.slice(0, k.indexOf('|')), k.slice(k.indexOf('|') + 1)];
+          room.members.push({ kind, id, group: null });
+        }
+        edOpen.add(room.id);
+        close();
+        renderEditorMain();
+      }, 'small primary')));
+  overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
+  card.append(overlay);
+  render();
   search.focus();
 }
-function openEditorRefresh(tree, search) {
-  $('.settings', $('#editor')).replaceWith(settingsBlock());
-  renderTree(tree, search.value.trim().toLowerCase());
-}
+
 function settingsBlock() {
-  const name = h('input', { class: 'txt', type: 'text', maxlength: 60, placeholder: M().home_name || 'Home' });
+  const name = h('input', { class: 'txt', type: 'text', maxlength: 60, placeholder: S.model?.home_name || 'Home' });
   name.value = W.settings.houseName || '';
   name.addEventListener('input', () => {
     const v = name.value.trim();
@@ -1795,6 +2466,9 @@ function editRow({ kind, key, label, fallback, icon, orig, extra = [], summary =
 }
 
 function renderTree(tree, q) {
+  withReal(() => renderAutoTree(tree, q));
+}
+function renderAutoTree(tree, q) {
   const m = M();
   const match = (...strs) => !q || strs.some((x) => x && x.toLowerCase().includes(q));
   const wAreaFloor = (aid) => wget('areas', aid).floor || m.areas[aid].floor_id;
@@ -1850,6 +2524,7 @@ function renderTree(tree, q) {
           extra: [floorSel, h('button', { class: 'ord', title: 'Move up', onclick: move(-1) }, ico('mdi:chevron-up')),
             h('button', { class: 'ord', title: 'Move down', onclick: move(1) }, ico('mdi:chevron-down'))],
         })),
+        h('div', { class: 'leaf' }, statusEditor(aid, a.devices.flatMap((nid) => m.devices[nid].entities))),
         devEls.length ? devEls : h('div', { class: 'leaf muted' }, 'No devices')));
       void idx;
     });
@@ -1865,13 +2540,16 @@ function renderTree(tree, q) {
   tree.replaceChildren(...(out.length ? out : [h('p', { class: 'muted' }, 'Nothing matches.')]));
 }
 
-$('#btn-edit').addEventListener('click', () => { if (M()) openEditor(); });
+$('#btn-edit').addEventListener('click', () => { if (!M()) return; if (S.plan) endPlanEdit(false); openEditor(); });
+$('#btn-plan').addEventListener('click', startPlanEdit);
 
 // ===================================================================
 // Keyboard
 // ===================================================================
 document.addEventListener('keydown', (e) => {
-  if (!$('#editor').hidden) { if (e.key === 'Escape') closeEditor(); return; }
+  if (!$('#editor').hidden) { if (e.key === 'Escape' && !$('#editor .picker')) closeEditor(); return; }
+  if (!$('#card-editor').hidden) { if (e.key === 'Escape') { $('#card-editor').hidden = true; W = null; } return; }
+  if (S.plan) { if (e.key === 'Escape') endPlanEdit(false); return; }
   if (e.target.matches('input, select, textarea')) return;
   const lvl = S.nav.level;
   if (lvl === 'house') {
@@ -1965,6 +2643,7 @@ async function loadModel() {
   if (!data.model) return false;
   S.model = data.model;
   S.states = data.states;
+  refreshView();
   return true;
 }
 
@@ -1985,6 +2664,8 @@ function connectWS() {
       if (await loadModel()) { if (!booted) boot(); else rerenderAll(); }
     } else if (msg.type === 'layout') {
       S.layout = { floors: {}, areas: {}, devices: {}, entities: {}, settings: {}, ...msg.layout };
+      if (S.plan) return; // don't yank the plan out from under the editor
+      refreshView();
       if (S.model && $('#editor').hidden) rerenderAll();
     }
   };
@@ -2012,7 +2693,6 @@ async function boot() {
     return;
   }
   booted = true;
-  $('#empty-house p').textContent = 'No rooms found yet.';
   buildHouse();
   renderCrumbs();
 }
