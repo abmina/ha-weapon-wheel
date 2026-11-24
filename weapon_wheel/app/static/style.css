@@ -553,6 +553,11 @@ body.plan-editing #house-labels .room-label { opacity: 1; }
 .toast.err { background: var(--danger); }
 .toast button { background: none; border: 0; color: #7cc4f8; font-weight: 600; cursor: pointer; }
 .toast.err button { color: #fff; }
+/* room card count pill (in the card's corner) */
+.r-count circle { fill: var(--primary); }
+.r-count text { fill: #fff; font: 700 13px var(--font); text-anchor: middle; dominant-baseline: central; }
+.room.empty .r-count, #house.plan-edit .r-count { display: none; }
+
 @keyframes toast-in { from { transform: translateY(12px); opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {

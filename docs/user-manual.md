@@ -110,7 +110,8 @@ The dashboard follows your device's **light or dark mode** automatically.
 ![The house](images/manual/house.png)
 
 - Every **storey** is a band in the house, with upstairs at the top. Basements sit under the green ground line.
-- Every **room** is a card.
+- Every **room** is a card. The round **pill** in its corner shows how many items its wheel has: devices, plus groups
+  counted as one each.
 - The card's **status line** shows live information. By default that's the temperature, the number of lights on, and a
   motion icon when motion is detected. Rooms with lights on glow amber. You choose what each card shows in
   [edit mode](#10-edit-mode-and-room-cards).

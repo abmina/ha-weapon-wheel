@@ -643,8 +643,14 @@ function buildHouse() {
           class: 'r-handle', 'data-handle': idx,
           d: `M${r.x + r.w - 4},${r.y + r.h - 26}V${r.y + r.h - 4}H${r.x + r.w - 26}Z`,
         }) : null);
+      // Round count pill in the card's corner: how many items the room's wheel has.
+      const pr = g.narrow ? 22 : 13; // the house is drawn smaller on phones, so the pill is drawn bigger
+      const count = s('g', { class: 'r-count' },
+        s('circle', { cx: r.x + r.w - pr - 7, cy: r.y + pr + 7, r: pr }),
+        s('text', { x: r.x + r.w - pr - 7, y: r.y + pr + 7, style: `font-size:${pr}px` }, ''));
+      room.append(count);
       roomEls.push(room);
-      S.rooms.push({ ...r, el: room });
+      S.rooms.push({ ...r, el: room, count });
     }
   }
   parts.push(roofName);
@@ -997,6 +1003,7 @@ function paintHouse() {
     const empty = st.devices === 0;
     r.el.classList.toggle('lit', st.lights > 0);
     r.el.classList.toggle('empty', empty);
+    r.count.querySelector('text').textContent = st.leaves; // what the room's wheel will show
     r.label.classList.toggle('lit', st.lights > 0);
     r.label.classList.toggle('empty', empty);
     r.label.querySelector('.chips').replaceChildren(...st.chips.map((c) => h('span', { title: c.eid ? entName(c.eid) : null }, ico(c.icon), c.text)));
