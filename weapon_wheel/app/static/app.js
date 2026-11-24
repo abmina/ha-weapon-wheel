@@ -802,11 +802,11 @@ $('#house').addEventListener('pointercancel', endDrag);
 
 /** What a room card can show. Rooms without a choice show DEFAULT_STATUS. */
 const STATUS_SUMMARIES = {
-  temp: { label: 'Temperature (automatic)', icon: 'mdi:thermometer' },
-  lights: { label: 'Lights on', icon: 'mdi:lightbulb-on' },
-  active: { label: 'Devices on', icon: 'mdi:power' },
-  open: { label: 'Doors & windows open', icon: 'mdi:door-open' },
-  motion: { label: 'Motion', icon: 'mdi:motion-sensor' },
+  temp: { label: 'Temperature (automatic)', short: 'Temperature', icon: 'mdi:thermometer' },
+  lights: { label: 'Lights on', short: 'Lights on', icon: 'mdi:lightbulb-on' },
+  active: { label: 'Devices on', short: 'Devices on', icon: 'mdi:power' },
+  open: { label: 'Doors & windows open', short: 'Open', icon: 'mdi:door-open' },
+  motion: { label: 'Motion', short: 'Motion', icon: 'mdi:motion-sensor' },
 };
 const DEFAULT_STATUS = [{ kind: 'temp' }, { kind: 'lights' }, { kind: 'motion' }];
 const roomStatus = (aid) => (Array.isArray(L('areas', aid).status) ? L('areas', aid).status : DEFAULT_STATUS);
@@ -838,11 +838,14 @@ function roomStats(aid) {
   const chips = [];
   for (const item of roomStatus(aid)) {
     if (item.kind === 'entity') {
-      if (S.states[item.id]) chips.push({ icon: entityIcon(item.id), text: stateLabel(item.id), eid: item.id });
+      if (S.states[item.id]) chips.push({ icon: entityIcon(item.id), text: stateLabel(item.id), eid: item.id, label: entName(item.id) });
     } else if (STATUS_SUMMARIES[item.kind]) {
       const v = values[item.kind];
       if (!v) continue; // nothing to report (0 lights on, no motion, no temperature)
-      chips.push({ icon: STATUS_SUMMARIES[item.kind].icon, text: item.kind === 'motion' ? '' : String(v) });
+      chips.push({
+        icon: STATUS_SUMMARIES[item.kind].icon, text: item.kind === 'motion' ? '' : String(v),
+        label: STATUS_SUMMARIES[item.kind].short, value: item.kind === 'motion' ? 'Detected' : String(v),
+      });
     }
   }
   return { devices: nodes.length, leaves: roomItems(aid).length, lights, active, temp, motion, open, chips };
@@ -892,11 +895,8 @@ function setHouseFocus(idx, fromPointer = false) {
   tip.replaceChildren(...[
     h('h4', {}, areaName(r.aid)),
     h('div', { class: 'row' }, 'Devices', h('b', {}, st.devices)),
-    st.lights ? h('div', { class: 'row' }, 'Lights on', h('b', {}, st.lights)) : null,
-    st.active ? h('div', { class: 'row' }, 'Active', h('b', {}, st.active)) : null,
-    st.temp ? h('div', { class: 'row' }, 'Temperature', h('b', {}, st.temp)) : null,
-    st.open ? h('div', { class: 'row' }, 'Open', h('b', {}, st.open)) : null,
-    st.motion ? h('div', { class: 'row' }, 'Motion', h('b', {}, 'Detected')) : null,
+    // Exactly what the room card shows, in the same order (so a chosen temperature sensor wins over the automatic one).
+    ...st.chips.map((c) => h('div', { class: 'row' }, h('span', { class: 'tip-label' }, ico(c.icon), c.label), h('b', {}, c.value ?? c.text))),
   ].filter(Boolean));
   tip.hidden = false;
   const tw = tip.offsetWidth;

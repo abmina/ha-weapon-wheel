@@ -177,7 +177,9 @@ button, input, select { font: inherit; color: inherit; }
 }
 #tooltip h4 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
 #tooltip .row { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); font-size: 13px; }
-#tooltip .row b { color: var(--text); font-weight: 500; }
+#tooltip .row b { color: var(--text); font-weight: 500; white-space: nowrap; }
+#tooltip .tip-label { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+#tooltip .tip-label .mdi { font-size: 15px; }
 
 .empty { text-align: center; max-width: 420px; padding: 24px; }
 .empty .mdi { font-size: 56px; color: var(--primary); }

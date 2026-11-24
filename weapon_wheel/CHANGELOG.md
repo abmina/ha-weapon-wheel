@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+- The tooltip when you hover a room now shows exactly what its card shows, in the same order and with names - so a
+  temperature sensor you picked for the card is also the one in the tooltip, instead of the automatic one.
+
 ## 0.3.0
 - **Custom home.** In *Customize → Home layout*, switch from **Automatic** (built from Home Assistant floors, areas,
   devices and integrations) to **Custom** and design your own: levels (indoor, underground or outdoor), rooms with any
