@@ -42,7 +42,7 @@ you're at the controls. New devices show up on their own as soon as you assign t
 - **Customize** - hide, rename or reorder floors, rooms, devices and entities, or move a room to another floor.
   You can also right-click a wheel item to hide it, with undo.
 - **Works everywhere** - mouse, keyboard, touch, phones and the Companion app, in light or dark mode
-  (it follows your system setting, with the same look as the Rain Bird ESP-TM2 app).
+  (it follows your system setting).
 - **Locked down** - runs isolated with an AppArmor profile, and the page is only reachable through Home Assistant's
   login (Ingress). It never contacts the internet at runtime.
 

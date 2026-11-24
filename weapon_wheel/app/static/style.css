@@ -1,4 +1,4 @@
-/* Theme tokens shared with the Rain Bird ESP-TM2 app: light by default, dark with the system setting. */
+/* Theme tokens: light by default, dark with the system setting. */
 [hidden] { display: none !important; }
 :root {
   --bg: #f5f6f8;

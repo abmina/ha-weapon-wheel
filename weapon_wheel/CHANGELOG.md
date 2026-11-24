@@ -1,8 +1,8 @@
 # Changelog
 
 ## 0.2.0
-- New look matching the Rain Bird ESP-TM2 app: light and dark mode that follow your system setting, blue highlights,
-  clean cards and pill buttons. New icon and logo.
+- New look: light and dark mode that follow your system setting, blue highlights, clean cards and pill buttons.
+  New icon and logo.
 - Weapon wheel: the gaps between slices now have parallel sides, so they are the same width all the way out.
 - Weapon wheel: clicking or tapping outside the wheel no longer selects a slice.
 - Long device names fit in the centre of the wheel.
