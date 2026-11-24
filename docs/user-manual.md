@@ -381,6 +381,10 @@ What they can do depends on their role:
 The app checks this itself: a change sent by a non-administrator is refused, not only hidden on screen. Set up the
 dashboard as an administrator; everyone else sees the result.
 
+> **Updated from 0.3.3 or older?** Home Assistant keeps the sidebar entry it registered for the old version, which was
+> for administrators only. Turn **Show in sidebar** off and on again on the app's page once (or restart Home
+> Assistant). Until then, other users don't see Weapon Wheel, and its address sends them to the default dashboard.
+
 **Make Weapon Wheel the start page of a wall panel.** The dashboard's address is
 `http://<your-home-assistant>:8123/e7dd1b0c_weapon_wheel` (the path shown in the address bar when you open
 Weapon Wheel from the sidebar).
@@ -427,6 +431,10 @@ still works; check the camera's integration if you need smooth video.
 
 **The room temperature shows the wrong sensor.**
 Open **Edit**, click the room's pencil, remove *Temperature (automatic)* and add the sensor you want under **Shows**.
+
+**A non-administrator doesn't see Weapon Wheel, or its address opens the default dashboard.**
+Turn **Show in sidebar** off and on again on the app's page (or restart Home Assistant), then reload. Home Assistant
+only picks up who may see an app's sidebar entry when the entry is added.
 
 **A user can't see the Edit or Customize buttons.**
 Only Home Assistant administrators can edit the dashboard. Make the user an administrator under *Settings → People*, or

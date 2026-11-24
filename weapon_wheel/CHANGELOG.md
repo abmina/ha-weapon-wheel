@@ -4,6 +4,8 @@
 - **Every Home Assistant user** can now open the dashboard, so it works on a wall panel with its own non-admin account.
 - **Only administrators can edit**: for other users *Edit*, *Customize* and hiding/unhiding items (right-click,
   *Hide entity*, *Hide device*) are hidden, and the app refuses changes from them. Everyone can still use the controls.
+- **After updating, turn *Show in sidebar* off and on once** (or restart Home Assistant). Home Assistant keeps the
+  admin-only sidebar entry of the previous version until then.
 
 ## 0.3.3
 - **Weather** in the top-left corner of the house: current condition, temperature, today's high and low, humidity and
