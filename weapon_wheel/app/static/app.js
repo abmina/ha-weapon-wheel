@@ -2502,7 +2502,11 @@ function groupChip(room, g) {
   const icon = textIn((g.icon || '').replace(/^mdi:/, ''), (v) => { g.icon = v ? (v.includes(':') ? v : `mdi:${v}`) : null; }, 'icon', 'icon-in');
   return h('div', { class: 'c-group' },
     ico('mdi:folder-outline', 'ico'),
-    textIn(g.name, (v) => { g.name = v || 'Group'; }, 'Group name'),
+    textIn(g.name, (v) => {
+      g.name = v || 'Group';
+      // Keep the devices' Group lists in step while typing (they're only rebuilt on the next redraw).
+      for (const o of document.querySelectorAll('#editor select[title="Group"] option')) if (o.value === g.id) o.textContent = g.name;
+    }, 'Group name'),
     icon,
     h('span', { class: 'orig' }, `${room.members.filter((m) => m.group === g.id).length} in group`),
     h('button', {
