@@ -2459,12 +2459,28 @@ function memberInfo(m) {
   });
 }
 
+/** Is a custom-home member hidden on the dashboard? A device also counts as hidden when all its entities are. */
+function memberHidden(m) {
+  if (m.kind === 'entity') return !!wget('entities', m.id).hidden;
+  const ents = S.model.all_devices?.[m.id]?.entities || [];
+  return !!wget('devices', m.id).hidden || (ents.length > 0 && ents.every((e) => wget('entities', e).hidden));
+}
+/** Show a member on the dashboard again (in the working copy W). */
+function showMember(m) {
+  if (m.kind === 'entity') { wset('entities', m.id, { hidden: null }); return; }
+  wset('devices', m.id, { hidden: null });
+  const ents = S.model.all_devices?.[m.id]?.entities || [];
+  if (ents.length && ents.every((e) => wget('entities', e).hidden)) ents.forEach((e) => wset('entities', e, { hidden: null }));
+}
+
 function memberRow(room, m, groupsOpts) {
   const C = W.custom;
   const info = memberInfo(m);
-  return h('div', { class: `c-member ${info.missing ? 'missing' : ''}` },
+  const hidden = memberHidden(m);
+  return h('div', { class: `c-member ${info.missing ? 'missing' : ''} ${hidden ? 'off' : ''}` },
     ico(info.icon, 'ico'),
-    h('div', { class: 'c-m-text' }, h('span', {}, info.name), h('span', { class: 'muted' }, `${m.kind === 'device' ? 'Device' : 'Entity'} · ${info.sub}`)),
+    h('div', { class: 'c-m-text' }, h('span', {}, info.name),
+      h('span', { class: 'muted' }, `${m.kind === 'device' ? 'Device' : 'Entity'} · ${hidden ? 'hidden on the dashboard · ' : ''}${info.sub}`)),
     room.groups.length ? selectIn(groupsOpts, m.group || '', (v) => { m.group = v || null; }, 'Group') : null,
     selectIn(C.rooms.map((r) => [r.id, `in ${r.name}`]), room.id, (v) => {
       const to = C.rooms.find((r) => r.id === v);
@@ -2472,6 +2488,13 @@ function memberRow(room, m, groupsOpts) {
       if (!to.members.some((x) => x.kind === m.kind && x.id === m.id)) to.members.push({ ...m, group: null });
       renderEditorMain();
     }, 'Move to another room'),
+    h('button', {
+      class: 'eye', title: hidden ? 'Hidden on the dashboard - click to show' : 'Shown - click to hide',
+      onclick: () => {
+        if (hidden) showMember(m); else wset(m.kind === 'device' ? 'devices' : 'entities', m.id, { hidden: true });
+        renderEditorMain();
+      },
+    }, ico(hidden ? 'mdi:eye-off' : 'mdi:eye')),
     h('button', { class: 'eye', title: 'Remove from room', onclick: () => { room.members = room.members.filter((x) => x !== m); renderEditorMain(); } }, ico('mdi:close')));
 }
 
@@ -2542,6 +2565,7 @@ function openPicker(room) {
         for (const k of chosen) {
           const [kind, id] = [k.slice(0, k.indexOf('|')), k.slice(k.indexOf('|') + 1)];
           room.members.push({ kind, id, group: null });
+          showMember({ kind, id }); // adding something to a room means you want to see it
         }
         edOpen.add(room.id);
         close();

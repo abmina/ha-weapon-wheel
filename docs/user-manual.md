@@ -313,7 +313,8 @@ Click **Save** to switch. You can go back to **Automatic** at any time, and your
   level, or the bin to delete a room.
 - **Room card shows** sets the room's status line, the same as in the [card editor](#10-edit-mode-and-room-cards).
 - **Contents**: each device or entity in the room. Use the lists beside it to put it in a **group** or move it to
-  another room, and **×** to remove it.
+  another room, the **eye** to show or hide it on the dashboard, and **×** to remove it. Items hidden earlier (for example
+  while using the automatic home) are marked *hidden on the dashboard*; adding something to a room shows it again.
 - **Add devices or entities** opens a picker with two tabs and a search box. Items already in this room are ticked and
   greyed out; items in other rooms show where they are. A **device** brings all its entities (controls on the wheel,
   the rest in the device panel). A **single entity** opens straight away when you select it.

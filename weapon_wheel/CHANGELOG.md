@@ -5,6 +5,9 @@
   breadcrumbs are shortened, so the house wasn't always one tap away).
 - The bobbing **map pins** above the room cards are replaced by a round **count pill** in the corner of each card:
   how many items the room's wheel has (devices, with each group counted once).
+- Custom home: devices or entities you had hidden earlier no longer silently stay off the dashboard. Adding one to a
+  room shows it again, and every item in the custom editor has an **eye** to show or hide it (hidden items are
+  marked *hidden on the dashboard*).
 
 ## 0.3.8
 - Fixed: in the **Companion app** the dashboard went back to the house after 30 seconds even while you were using
