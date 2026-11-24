@@ -80,12 +80,13 @@ Switch back to **Automatic** at any time - your custom home is kept for later.
 
 ## Customize
 
-Click **Customize** (top right) to:
+Click **Customize** (top right) to open it as a full window, where you can:
 
 - give the house a name, shown on the roof, in the navigation bar and in the browser tab (leave it empty to use the
   home name from *Settings → System → General*);
 - show or hide any floor, room, device or entity (eye button);
 - rename them for this dashboard (leave the field empty to use the Home Assistant name);
+- rename a room's integration groups (the tree shows them like the wheels);
 - reorder rooms on a floor and move a room to a different floor;
 - tick **Outdoor** on a level to show all its rooms in a garden outside the house (for example a *Garden* or
   *Outside* floor, or the *Unassigned level*), or move a single room to the built-in **Outdoor** level;

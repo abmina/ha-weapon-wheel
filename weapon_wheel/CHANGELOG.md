@@ -6,6 +6,9 @@
 - Fixed a stray "null" text above the sidebar for cameras and single entities, and under the list in the
   *Add devices or entities* picker.
 - Wording: Home Assistant calls add-ons **apps** now, and so do this app's texts.
+- **Customize** opens as a full window, like the house, instead of a floating box.
+- The Customize tree shows each room's **integration groups** like the wheels do, and you can **rename** a group (per
+  room). The search also finds devices by manufacturer and model.
 
 ## 0.3.1
 - The tooltip when you hover a room now shows exactly what its card shows, in the same order and with names - so a

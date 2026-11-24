@@ -394,6 +394,21 @@ details[open] > summary .caret { transform: rotate(90deg); }
 .leaf { margin-left: 44px; }
 @media (max-width: 600px) { .trow .orig, .trow .kind { display: none; } .leaf { margin-left: 22px; } }
 
+/* ---------- Customize: a full window like the house ---------- */
+#editor { padding: 0; background: var(--bg); }
+#editor > .modal-card {
+  width: 100%; max-width: none; height: 100%; max-height: none;
+  border: 0; border-radius: 0; box-shadow: none; background: var(--bg);
+  --page: max(16px, calc((100% - 1100px) / 2));
+}
+#editor > .modal-card > .modal-head {
+  padding: 10px var(--page); min-height: 56px; background: var(--card); border-bottom: 1px solid var(--line);
+}
+#editor > .modal-card > .modal-body { padding: 14px var(--page) 24px; }
+#editor > .modal-card > .modal-foot { padding: 12px var(--page); background: var(--card); }
+#editor .picker { border-radius: 0; }
+.tree-group > summary .trow .ico { color: var(--primary); }
+
 /* ---------- floor-plan editor ---------- */
 #plan-bar {
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 15; max-width: calc(100% - 24px);

@@ -1201,7 +1201,7 @@ function groupInfo(aid, key) {
     const g = (M().areas[aid]?.groups || []).find((x) => x.id === key);
     return { name: g?.name || 'Group', icon: g?.icon || 'mdi:folder-outline' };
   }
-  return { name: integrationName(key), icon: 'mdi:puzzle-outline' };
+  return { name: L('areas', aid).groups?.[key]?.name || integrationName(key), icon: 'mdi:puzzle-outline' };
 }
 function integrationName(integ) {
   const d = Object.values(M().devices).find((x) => x.integration === integ);
@@ -2474,8 +2474,17 @@ function editRow({ kind, key, label, fallback, icon, orig, extra = [], summary =
 function renderTree(tree, q) {
   withReal(() => renderAutoTree(tree, q));
 }
+/** Rename a room's integration group (stored per room; empty = the integration's name). */
+function setGroupName(aid, key, name) {
+  const groups = { ...(wget('areas', aid).groups || {}) };
+  if (name) groups[key] = { name }; else delete groups[key];
+  wset('areas', aid, { groups: Object.keys(groups).length ? groups : null });
+}
+
 function renderAutoTree(tree, q) {
   const m = M();
+  // Group the tree exactly like the wheels, using the unsaved settings.
+  const draftGroups = (aid) => { const saved = S.layout; S.layout = W; try { return roomGroups(aid); } finally { S.layout = saved; } };
   const match = (...strs) => !q || strs.some((x) => x && x.toLowerCase().includes(q));
   const wAreaFloor = (aid) => wget('areas', aid).floor || m.areas[aid].floor_id;
   const sortW = (ids) => [...ids].sort((a, b) => ((wget('areas', a).order ?? 1e6) - (wget('areas', b).order ?? 1e6)) || m.areas[a].name.localeCompare(m.areas[b].name));
@@ -2486,21 +2495,45 @@ function renderAutoTree(tree, q) {
     const areaEls = [];
     areaIds.forEach((aid, idx) => {
       const a = m.areas[aid];
-      const devEls = [];
-      for (const nid of a.devices) {
+      const deviceEl = (nid, extraMatch = '') => {
         const d = m.devices[nid];
         const dkey = d.device_id || nid;
-        const entEls = d.entities.filter((eid) => match(m.entities[eid].full_name, eid, wget('entities', eid).name) || match(d.name, a.name))
+        const devText = [d.name, wget('devices', dkey).name, d.manufacturer, d.model, a.name, extraMatch];
+        const entEls = d.entities.filter((eid) => match(m.entities[eid].full_name, eid, wget('entities', eid).name) || match(...devText))
           .map((eid) => h('div', { class: 'leaf' }, editRow({
             kind: 'entities', key: eid, label: domainOf(eid), fallback: m.entities[eid].name, icon: entityIcon(eid), orig: eid, summary: false,
           })));
-        if (!entEls.length && !match(d.name, a.name)) continue;
-        devEls.push(h('details', { open: !!q },
+        if (!entEls.length && !match(...devText)) return null;
+        return h('details', { open: !!q },
           h('summary', {}, editRow({
             kind: 'devices', key: dkey, label: 'Device', fallback: d.virtual ? `${a.name} extras` : d.name,
             icon: deviceIcon(nid), orig: [d.manufacturer, d.model].filter(Boolean).join(' ') || `${d.entities.length} entities`,
           })),
-          entEls));
+          entEls);
+      };
+      const devEls = [];
+      const { groups, loose } = draftGroups(aid);
+      const grouped = new Set(Object.values(groups).flat());
+      // Integration groups first (as on the wheel), each with its devices inside.
+      for (const [key, ids] of Object.entries(groups).sort((x, y) => integrationName(x[0]).localeCompare(integrationName(y[0])))) {
+        const custom = wget('areas', aid).groups?.[key]?.name || '';
+        const inner = ids.map((nid) => deviceEl(nid, `${custom} ${integrationName(key)}`)).filter(Boolean);
+        if (!inner.length && !match(custom, integrationName(key))) continue;
+        const name = textIn(custom, (v) => setGroupName(aid, key, v), integrationName(key));
+        name.addEventListener('click', (e) => e.preventDefault()); // don't fold the <details>
+        devEls.push(h('details', { open: !!q, class: 'tree-group' },
+          h('summary', {}, h('div', { class: 'trow' },
+            ico('mdi:chevron-right', 'caret'),
+            h('span', { class: 'kind' }, 'Group'),
+            ico('mdi:puzzle-outline', 'ico'),
+            name,
+            h('span', { class: 'orig', title: integrationName(key) }, `${ids.length} devices · ${integrationName(key)}`))),
+          inner));
+      }
+      // Then the devices outside a group - and hidden ones, so they can be shown again.
+      for (const nid of [...loose, ...a.devices.filter((n) => !grouped.has(n) && !loose.includes(n))]) {
+        const el = deviceEl(nid);
+        if (el) devEls.push(el);
       }
       if (!devEls.length && !match(a.name)) return;
       const floorSel = h('select', { title: 'Floor, or outside the house' }, allFloors().map((ff) => {

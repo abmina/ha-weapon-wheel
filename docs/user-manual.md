@@ -135,7 +135,7 @@ Opening a room zooms into it and fans its devices out as a wheel.
 **Groups.** When a room has two or more devices from the same integration (for example several Shelly devices), they
 share one slice named after the integration, such as *Shelly · 2 devices · 1 on*. Select it to open a wheel with just
 those devices. Rooms whose devices all come from one integration aren't grouped, because that would only add a click.
-You can turn grouping off in Customize. In a custom home you make your own groups instead.
+In Customize you can rename a group or turn grouping off. In a custom home you make your own groups instead.
 
 ![A group wheel](images/manual/group-wheel.png)
 
@@ -240,8 +240,8 @@ In a **custom home**, edit mode is also the [floor-plan editor](#floor-plan).
 
 ## 11. Customize the automatic home
 
-Click **Customize** (top right). Changes only take effect when you click **Save**, and they only affect the dashboard,
-never Home Assistant.
+Click **Customize** (top right). It opens as a full window; **×** (top right) or **Cancel** closes it. Changes only
+take effect when you click **Save**, and they only affect the dashboard, never Home Assistant.
 
 ![Customize](images/manual/customize.png)
 
@@ -253,15 +253,19 @@ never Home Assistant.
 - **Skip entity wheel for single-entity devices**: a device with one control opens it straight away.
 - **Group devices of the same integration**: turn integration groups on or off.
 
-**The tree**, with levels → rooms → devices → entities:
+**The tree**, with levels → rooms → groups → devices → entities, arranged exactly like the wheels:
 
 - **Eye**: show or hide the item on the dashboard.
 - **Name field**: rename it for the dashboard. Leave it empty to use the Home Assistant name.
+- **Groups**: a room's integration groups appear with their devices inside. Type a new name to rename a group (for
+  example *Shelly* → *Kitchen appliances*); leave it empty to use the integration's name. The name is per room.
+  Devices you've hidden are listed outside the groups, so you can show them again.
 - **Room level list**: move a room to another level, or to the built-in **Outdoor (outside the house)** level.
 - **▲ ▼**: reorder rooms on a level.
 - **Outdoor** on a level: draw all its rooms in a garden next to the house. This is handy for a *Garden* floor or the
   *Unassigned level*.
-- **Search box**: filter the tree.
+- **Search box**: filter the tree by the name of a level, room, group, device or entity, an entity ID, or a device's
+  manufacturer or model.
 
 **Reset everything** removes all customizations, including a custom home, when you save.
 
