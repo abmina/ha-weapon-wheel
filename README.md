@@ -39,7 +39,8 @@ you're at the controls. New devices show up on their own as soon as you assign t
 
   Plus a **24-hour history** chart, **more actions** from the entity's services, and all its **attributes**.
 - **Live** - states update instantly. Changes to areas, devices or floors in Home Assistant appear without a restart.
-- **Customize** - hide, rename or reorder floors, rooms, devices and entities, or move a room to another floor.
+- **Customize** - name your house, hide, rename or reorder floors, rooms, devices and entities, or move a room to
+  another floor.
   You can also right-click a wheel item to hide it, with undo.
 - **Works everywhere** - mouse, keyboard, touch, phones and the Companion app, in light or dark mode
   (it follows your system setting).

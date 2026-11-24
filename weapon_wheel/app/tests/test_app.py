@@ -105,6 +105,14 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(data["demo"])
         self.assertIn("light.kitchen_spots", data["states"])
 
+    async def test_home_name_from_home_assistant(self):
+        data = await (await self.client.get("/api/model")).json()
+        self.assertEqual(data["model"]["home_name"], "Demo House")
+
+    async def test_house_name_setting_saved(self):
+        r = await self.client.put("/api/layout", json={"settings": {"houseName": "Villa Sol"}})
+        self.assertEqual((await r.json())["settings"], {"houseName": "Villa Sol"})
+
     async def test_index_served(self):
         r = await self.client.get("/")
         self.assertEqual(r.status, 200)

@@ -368,10 +368,16 @@ class Hub:
                 self.client.call("get_states"),
                 self.client.call("get_services"),
             )
+            try:
+                config = await self.client.call("get_config")
+            except HAError:
+                config = {}
             self.states = {s["entity_id"]: s for s in states}
             self.model = build_model(
                 floors, areas, devices, entities, self.states, services, self.options
             )
+            # Default name of the house: the home name from Settings -> System -> General
+            self.model["home_name"] = (config or {}).get("location_name") or None
             LOG.info(
                 "Discovered %d floors, %d areas, %d devices, %d entities",
                 len(self.model["floors"]),

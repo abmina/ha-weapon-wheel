@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+- Name your house: *Customize → House name*. The name shows on the roof of the house, as the first step of the
+  navigation bar and in the browser tab. Leave it empty to use the home name from Home Assistant
+  (*Settings → System → General*).
+
 ## 0.2.1
 - Documentation and release-note wording updates. No changes to the dashboard itself.
 

@@ -32,6 +32,8 @@ With more than 10 devices in a room, the wheel gets pages. Use the arrows next t
 
 Click **Customize** (top right) to:
 
+- give the house a name, shown on the roof, in the navigation bar and in the browser tab (leave it empty to use the
+  home name from *Settings → System → General*);
 - show or hide any floor, room, device or entity (eye button);
 - rename them for this dashboard (leave the field empty to use the Home Assistant name);
 - reorder rooms on a floor and move a room to a different floor;

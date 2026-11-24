@@ -94,6 +94,8 @@ const M = () => S.model;
 // --- customization lookups --------------------------------------------
 const L = (kind, key) => (S.layout[kind] && S.layout[kind][key]) || {};
 const setting = (k) => !!(S.layout.settings || {})[k];
+/** Name of the house: the dashboard's own name, else Home Assistant's home name, else "Home". */
+const houseName = () => (S.layout.settings || {}).houseName || M()?.home_name || 'Home';
 const devKey = (nid) => M().devices[nid]?.device_id || nid;
 const isHidden = (kind, key) => !!L(kind, key).hidden;
 
@@ -413,6 +415,7 @@ function buildHouse() {
   // Roof + chimney + attic window
   const eaveL = g.X0 - 50, eaveR = g.X1 + 50, apexY = g.TOP, eaveY = g.TOP + g.ROOF;
   parts.push(s('rect', { class: 'h-chimney', x: 690, y: apexY + 30, width: 46, height: 110 }));
+  const roofName = s('text', { class: 'h-house-name', x: HW / 2, y: eaveY - 16 }, houseName());
   parts.push(s('polygon', { class: 'h-roof', points: `${eaveL},${eaveY} ${HW / 2},${apexY} ${eaveR},${eaveY}` }));
   parts.push(s('polyline', { class: 'h-roof-line', points: `${eaveL + 40},${eaveY - 14} ${HW / 2},${apexY + 22} ${eaveR - 40},${eaveY - 14}` }));
   parts.push(s('circle', { class: 'h-attic', cx: HW / 2, cy: apexY + g.ROOF * 0.62, r: 20 }));
@@ -442,6 +445,7 @@ function buildHouse() {
       S.rooms.push({ ...r, el: room, pin });
     }
   }
+  parts.push(roofName);
   parts.push(s('line', { class: 'h-ground', x1: 10, x2: HW - 10, y1: g.groundY, y2: g.groundY }));
   svg.replaceChildren(...parts, ...roomEls, ...pinEls);
 
@@ -916,7 +920,8 @@ function closeSidebar() {
 
 function renderCrumbs() {
   const c = $('#crumbs');
-  const parts = [[ 'Home', () => guard(goHouse) ]];
+  document.title = houseName();
+  const parts = [[houseName(), () => guard(goHouse)]];
   const n = S.nav;
   if (n.areaId && M().areas[n.areaId]) {
     const fid = areaFloor(n.areaId);
@@ -1362,9 +1367,7 @@ function openEditor() {
   const ed = $('#editor');
   const search = h('input', { class: 'txt', type: 'search', placeholder: 'Filter rooms, devices, entities…' });
   const tree = h('div', { class: 'tree' });
-  const settings = h('div', { class: 'settings' },
-    settingBox('hideEmptyRooms', 'Hide rooms without devices'),
-    settingBox('skipSingleEntity', 'Skip entity wheel for single-entity devices'));
+  const settings = settingsBlock();
   search.addEventListener('input', () => renderTree(tree, search.value.trim().toLowerCase()));
   search.addEventListener('keydown', (e) => e.stopPropagation());
   ed.replaceChildren(h('div', { class: 'modal-card', role: 'dialog', 'aria-label': 'Customize dashboard' },
@@ -1392,10 +1395,21 @@ function openEditor() {
   search.focus();
 }
 function openEditorRefresh(tree, search) {
-  $('.settings', $('#editor')).replaceWith(h('div', { class: 'settings' },
-    settingBox('hideEmptyRooms', 'Hide rooms without devices'),
-    settingBox('skipSingleEntity', 'Skip entity wheel for single-entity devices')));
+  $('.settings', $('#editor')).replaceWith(settingsBlock());
   renderTree(tree, search.value.trim().toLowerCase());
+}
+function settingsBlock() {
+  const name = h('input', { class: 'txt', type: 'text', maxlength: 60, placeholder: M().home_name || 'Home' });
+  name.value = W.settings.houseName || '';
+  name.addEventListener('input', () => {
+    const v = name.value.trim();
+    if (v) W.settings.houseName = v; else delete W.settings.houseName;
+  });
+  name.addEventListener('keydown', (e) => e.stopPropagation());
+  return h('div', { class: 'settings' },
+    h('label', { class: 'house-name' }, h('span', {}, 'House name'), name),
+    settingBox('hideEmptyRooms', 'Hide rooms without devices'),
+    settingBox('skipSingleEntity', 'Skip entity wheel for single-entity devices'));
 }
 function settingBox(key, label) {
   const cb = h('input', { type: 'checkbox' });

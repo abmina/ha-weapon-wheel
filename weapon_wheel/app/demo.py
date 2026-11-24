@@ -285,6 +285,8 @@ class DemoClient:
             return copy.deepcopy(self.entities)
         if msg_type == "get_states":
             return copy.deepcopy(list(self.states.values()))
+        if msg_type == "get_config":
+            return {"location_name": "Demo House"}
         if msg_type == "get_services":
             return {
                 d: {s: {"name": s.replace("_", " ").capitalize(), "fields": {"x": {"required": True}} if s in REQUIRED else {}, "target": {}} for s in svcs}
