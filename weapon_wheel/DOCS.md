@@ -47,7 +47,9 @@ Assistant backups.
 
 - **Show diagnostic and config entities** - include entities such as signal strength, battery and firmware.
 - **Show hidden entities** - include entities hidden in Home Assistant.
-- **Accent colour** - hex colour for highlights.
+- **Highlight colour** - optional hex colour that replaces the theme's blue. Leave it empty for the standard look.
+
+The dashboard follows your device's light or dark mode automatically.
 
 ## Security
 

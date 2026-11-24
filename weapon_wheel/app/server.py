@@ -39,7 +39,7 @@ PORT = int(os.environ.get("PORT", "8099"))
 DEFAULT_OPTIONS = {
     "show_diagnostic_entities": False,
     "show_hidden_entities": False,
-    "accent_color": "#ff7a1a",
+    "accent_color": "",
 }
 LAYOUT_SECTIONS = ("floors", "areas", "devices", "entities", "settings")
 REGISTRY_EVENTS = (

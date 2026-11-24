@@ -41,13 +41,18 @@ you're at the controls. New devices show up on their own as soon as you assign t
 - **Live** - states update instantly. Changes to areas, devices or floors in Home Assistant appear without a restart.
 - **Customize** - hide, rename or reorder floors, rooms, devices and entities, or move a room to another floor.
   You can also right-click a wheel item to hide it, with undo.
-- **Works everywhere** - mouse, keyboard, touch, phones and the Companion app.
+- **Works everywhere** - mouse, keyboard, touch, phones and the Companion app, in light or dark mode
+  (it follows your system setting, with the same look as the Rain Bird ESP-TM2 app).
 - **Locked down** - runs isolated with an AppArmor profile, and the page is only reachable through Home Assistant's
   login (Ingress). It never contacts the internet at runtime.
 
-| Device wheel | Actions | Customize | Phone |
-|---|---|---|---|
-| ![Device wheel](docs/images/device-wheel.png) | ![Actions](docs/images/sidebar.png) | ![Customize](docs/images/customize.png) | ![Phone](docs/images/mobile.png) |
+| Device wheel | Actions | Dark mode |
+|---|---|---|
+| ![Device wheel](docs/images/device-wheel.png) | ![Actions](docs/images/sidebar.png) | ![Dark mode](docs/images/dark.png) |
+
+| Customize | Phone |
+|---|---|
+| ![Customize](docs/images/customize.png) | ![Phone](docs/images/mobile.png) |
 
 ## Requirements
 
@@ -93,7 +98,7 @@ Full documentation is on the app's **Documentation** tab ([DOCS.md](weapon_wheel
 |---|---|---|
 | `show_diagnostic_entities` | off | Include diagnostic and config entities (signal strength, battery, firmware…) |
 | `show_hidden_entities` | off | Include entities hidden in Home Assistant |
-| `accent_color` | `#ff7a1a` | Highlight colour |
+| `accent_color` | *(empty)* | Optional hex colour that replaces the theme's blue |
 
 ## FAQ
 

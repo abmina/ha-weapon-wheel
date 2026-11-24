@@ -6,5 +6,5 @@ configuration:
     name: Show hidden entities
     description: Include entities that are hidden in Home Assistant.
   accent_color:
-    name: Accent colour
-    description: Hex colour used for highlights, e.g. "#ff7a1a".
+    name: Highlight colour (optional)
+    description: Hex colour that replaces the theme's blue for highlights, e.g. "#2e9d57". Leave empty for the standard theme.

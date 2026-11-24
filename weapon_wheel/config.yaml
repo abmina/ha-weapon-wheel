@@ -1,5 +1,5 @@
 name: Weapon Wheel Dashboard
-version: "0.1.0"
+version: "0.2.0"
 slug: weapon_wheel
 description: Game-style dashboard - a house map with clickable rooms that open weapon-wheel menus for your devices and entities
 url: https://github.com/abmina/ha-weapon-wheel
@@ -16,8 +16,7 @@ homeassistant_api: true
 options:
   show_diagnostic_entities: false
   show_hidden_entities: false
-  accent_color: "#ff7a1a"
 schema:
   show_diagnostic_entities: bool
   show_hidden_entities: bool
-  accent_color: match(^#[0-9a-fA-F]{6}$)
+  accent_color: match(^#[0-9a-fA-F]{6}$)?

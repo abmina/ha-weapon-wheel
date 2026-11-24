@@ -407,16 +407,16 @@ function buildHouse() {
   const parts = [];
   parts.push(s('defs', {},
     s('linearGradient', { id: 'earth', x1: 0, y1: 0, x2: 0, y2: 1 },
-      s('stop', { offset: 0, 'stop-color': '#3ddc97', 'stop-opacity': 0.08 }),
-      s('stop', { offset: 1, 'stop-color': '#3ddc97', 'stop-opacity': 0 }))));
+      s('stop', { class: 'h-earth-stop', offset: 0, 'stop-opacity': 0.1 }),
+      s('stop', { class: 'h-earth-stop', offset: 1, 'stop-opacity': 0 }))));
 
   // Roof + chimney + attic window
   const eaveL = g.X0 - 50, eaveR = g.X1 + 50, apexY = g.TOP, eaveY = g.TOP + g.ROOF;
   parts.push(s('rect', { class: 'h-chimney', x: 690, y: apexY + 30, width: 46, height: 110 }));
-  parts.push(s('polygon', { class: 'h-roof', points: `${eaveL},${eaveY} ${HW / 2},${apexY} ${eaveR},${eaveY}`, fill: '#0b0f15' }));
+  parts.push(s('polygon', { class: 'h-roof', points: `${eaveL},${eaveY} ${HW / 2},${apexY} ${eaveR},${eaveY}` }));
   parts.push(s('polyline', { class: 'h-roof-line', points: `${eaveL + 40},${eaveY - 14} ${HW / 2},${apexY + 22} ${eaveR - 40},${eaveY - 14}` }));
-  parts.push(s('circle', { cx: HW / 2, cy: apexY + g.ROOF * 0.62, r: 20, fill: 'none', stroke: 'rgba(255,255,255,.22)', 'stroke-width': 2.5 }));
-  parts.push(s('path', { d: `M${HW / 2 - 20},${apexY + g.ROOF * 0.62}h40M${HW / 2},${apexY + g.ROOF * 0.62 - 20}v40`, stroke: 'rgba(255,255,255,.18)', 'stroke-width': 2 }));
+  parts.push(s('circle', { class: 'h-attic', cx: HW / 2, cy: apexY + g.ROOF * 0.62, r: 20 }));
+  parts.push(s('path', { class: 'h-attic', d: `M${HW / 2 - 20},${apexY + g.ROOF * 0.62}h40M${HW / 2},${apexY + g.ROOF * 0.62 - 20}v40` }));
 
   // Earth + ground line
   parts.push(s('rect', { class: 'h-earth', x: 0, y: g.groundY, width: HW, height: g.H - g.groundY }));
@@ -557,14 +557,24 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 const rad = (deg) => (deg * Math.PI) / 180;
 const pt = (a, r) => [Math.cos(rad(a)) * r, Math.sin(rad(a)) * r];
 
-function sectorPath(a0, a1, r0, r1) {
+/**
+ * Annular slice from angle a0 to a1 (degrees). `gap` is the width of the channel between
+ * neighbouring slices in user units: each edge is offset by gap/2 perpendicular to its
+ * radial line, so the channel has parallel sides instead of widening outwards.
+ */
+function sectorPath(a0, a1, r0, r1, gap = 0) {
   if (a1 - a0 >= 359.99) {
     return `M${r1},0A${r1},${r1} 0 1 1 ${-r1},0A${r1},${r1} 0 1 1 ${r1},0Z`
       + `M${r0},0A${r0},${r0} 0 1 0 ${-r0},0A${r0},${r0} 0 1 0 ${r0},0Z`;
   }
-  const large = a1 - a0 > 180 ? 1 : 0;
-  const [x0, y0] = pt(a0, r1), [x1, y1] = pt(a1, r1), [x2, y2] = pt(a1, r0), [x3, y3] = pt(a0, r0);
-  return `M${x0},${y0}A${r1},${r1} 0 ${large} 1 ${x1},${y1}L${x2},${y2}A${r0},${r0} 0 ${large} 0 ${x3},${y3}Z`;
+  const off = (r) => (Math.asin(Math.min(1, gap / 2 / r)) * 180) / Math.PI;
+  const span = a1 - a0;
+  // Never let the offsets eat the whole slice (tiny slices mid-animation).
+  const dO = Math.min(off(r1), span * 0.45), dI = Math.min(off(r0), span * 0.45);
+  const o0 = a0 + dO, o1 = a1 - dO, i0 = a0 + dI, i1 = a1 - dI;
+  const largeO = o1 - o0 > 180 ? 1 : 0, largeI = i1 - i0 > 180 ? 1 : 0;
+  const [x0, y0] = pt(o0, r1), [x1, y1] = pt(o1, r1), [x2, y2] = pt(i1, r0), [x3, y3] = pt(i0, r0);
+  return `M${x0},${y0}A${r1},${r1} 0 ${largeO} 1 ${x1},${y1}L${x2},${y2}A${r0},${r0} 0 ${largeI} 0 ${x3},${y3}Z`;
 }
 
 class Wheel {
@@ -641,7 +651,7 @@ class Wheel {
     if (!n) return;
     const e = easeInOut(t);
     const span = 360 / n;
-    const gap = n === 1 ? 0 : Math.min(1.4, span * 0.06);
+    const gap = n === 1 ? 0 : 7; // channel width between slices, in wheel units
     const anchor = -90;
     const swirl = (1 - e) * -50;
     const mapA = (a) => anchor + (a - anchor) * e + swirl;
@@ -649,11 +659,11 @@ class Wheel {
     const W = 660;
     items.forEach((it, i) => {
       const hov = i === this.hover && t === 1;
-      const a0 = -90 - span / 2 + i * span + gap / 2;
-      const a1 = a0 + span - gap;
+      const a0 = -90 - span / 2 + i * span;
+      const a1 = a0 + span;
       const r0 = this.r + 6 + (hov ? 6 : 0);
       const r1 = Ro + (hov ? 14 : 0);
-      this.segs[i].setAttribute('d', sectorPath(mapA(a0), mapA(a1), r0, r1));
+      this.segs[i].setAttribute('d', sectorPath(mapA(a0), mapA(a1), r0, r1, gap));
       this.segs[i].style.opacity = Math.min(1, e * 1.6);
       const mid = mapA((a0 + a1) / 2);
       const [x, y] = pt(mid, (r0 + r1) / 2 + (n === 1 ? 0 : 4));
@@ -710,7 +720,7 @@ class Wheel {
     const dy = (clientY - (box.top + box.height / 2)) * k;
     const dist = Math.hypot(dx, dy);
     if (dist < this.r) return -2;
-    if (dist > this.R * 1.7) return -1;
+    if (dist > this.R + 16) return -1; // outside the wheel: nothing to aim at or click
     const n = this.pageItems.length;
     if (!n) return -1;
     const span = 360 / n;
@@ -1224,7 +1234,7 @@ function stateBlock(eid) {
 }
 
 const NO_HISTORY = new Set(['button', 'input_button', 'scene', 'camera', 'update', 'script', 'image']);
-const TIMELINE_COLORS = ['var(--accent)', '#4cc3ff', '#3ddc97', '#ffc94a', '#c77dff', '#ff5468', '#8592a6'];
+const TIMELINE_COLORS = ['var(--primary)', 'var(--warn)', 'var(--ok)', '#8b5cf6', 'var(--danger)', '#14b8a6', 'var(--muted)'];
 
 function historyBlock(eid) {
   if (NO_HISTORY.has(domainOf(eid))) return null;
@@ -1278,7 +1288,7 @@ function drawHistory(data) {
     const end = i + 1 < pts.length ? pts[i + 1].t : t1;
     const start = Math.max(p.t, t0);
     if (end <= start) return;
-    if (!(p.s in colors)) colors[p.s] = p.s === 'off' ? 'rgba(255,255,255,.08)' : TIMELINE_COLORS[ci++ % TIMELINE_COLORS.length];
+    if (!(p.s in colors)) colors[p.s] = p.s === 'off' ? 'var(--line)' : TIMELINE_COLORS[ci++ % TIMELINE_COLORS.length];
     segs.push(h('span', { title: pretty(p.s), style: `width:${((end - start) / (t1 - t0)) * 100}%;background:${colors[p.s]}` }));
   });
   return h('div', {},
@@ -1558,16 +1568,23 @@ function onStates(batch) {
 function setConn(ok) {
   S.connected = ok;
   const c = $('#conn');
-  c.classList.toggle('ok', ok);
-  c.textContent = S.demo ? 'DEMO' : '';
+  c.classList.toggle('ok', ok && !S.demo);
+  c.classList.toggle('demo', ok && S.demo);
+  c.textContent = !ok ? 'Offline' : S.demo ? 'Demo house' : 'Connected';
   c.title = ok ? (S.demo ? 'Demo mode (no Home Assistant)' : 'Connected to Home Assistant') : 'Disconnected';
 }
 
+/** Optional colour override from the add-on options; the theme's blue is used otherwise. */
 function applyAccent(hex) {
-  if (!/^#[0-9a-f]{6}$/i.test(hex || '')) return;
-  const n = parseInt(hex.slice(1), 16);
-  document.documentElement.style.setProperty('--accent', hex);
-  document.documentElement.style.setProperty('--accent-rgb', `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`);
+  const root = document.documentElement.style;
+  // #ff7a1a was the default of version 0.1.0 - treat it as "not set".
+  if (!/^#[0-9a-f]{6}$/i.test(hex || '') || hex.toLowerCase() === '#ff7a1a') {
+    root.removeProperty('--primary');
+    root.removeProperty('--primary-soft');
+    return;
+  }
+  root.setProperty('--primary', hex);
+  root.setProperty('--primary-soft', `color-mix(in srgb, ${hex} 16%, var(--card))`);
 }
 
 async function loadModel() {
