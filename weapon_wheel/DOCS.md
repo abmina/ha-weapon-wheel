@@ -26,7 +26,8 @@ Set areas and floors under *Settings → Areas, labels & zones*.
 
 ## Using it
 
-1. **House** - hover a room for a summary and click it to open it. A room's pin shows how many leaves its wheel has
+1. **House** - the weather is in the top-left corner (tap it for details). Hover a room for a summary and click it to
+   open it. A room's pin shows how many leaves its wheel has
    (devices and integration groups). Rooms
    with lights on glow.
 2. **Device wheel** - move the mouse (or your finger) in any direction to aim at a device, and click to open it. Click the
@@ -92,7 +93,8 @@ Click **Customize** (top right) to open it as a full window, where you can:
   *Outside* floor, or the *Unassigned level*), or move a single room to the built-in **Outdoor** level;
 - hide rooms that have no devices;
 - skip the entity wheel for devices that have only one entity;
-- turn grouping by integration on or off.
+- turn grouping by integration on or off;
+- choose the weather the house shows (any weather integration, Met.no by default, or none).
 
 Right-click (or long-press) a segment on a wheel to hide it quickly. A toast lets you undo it.
 

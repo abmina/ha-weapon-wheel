@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.3
+- **Weather** in the top-left corner of the house: current condition, temperature, today's high and low, humidity and
+  the next days. Uses Home Assistant's own Met.no weather by default; choose any other weather integration (or none)
+  in *Customize → Weather* or with the pencil on the weather card in edit mode. Tap it for details.
+- **Phones and portrait screens**: outdoor gardens are drawn below the house instead of beside it, so the house uses
+  the full width and the screen's height instead of shrinking. The layout also rebuilds when a tablet is rotated.
+
 ## 0.3.2
 - New **[user manual](https://github.com/abmina/ha-weapon-wheel/blob/main/docs/user-manual.md)** with screenshots, linked from the
   Documentation tab.

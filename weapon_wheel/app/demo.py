@@ -173,6 +173,8 @@ LOOSE = [
     ("script.good_morning", "master_bedroom", "off", {"friendly_name": "Good Morning", "icon": "mdi:weather-sunset-up"}),
     ("input_boolean.guest_mode", "hallway", "off", {"friendly_name": "Guest Mode", "icon": "mdi:account-multiple"}),
     # No area in Home Assistant: not on the automatic map, but usable in a custom home.
+    ("weather.forecast_home", None, "partlycloudy", {"friendly_name": "Forecast Home", "temperature": 17.4, "temperature_unit": "°C", "humidity": 62, "wind_speed": 14.8, "wind_speed_unit": "km/h", "pressure": 1016, "pressure_unit": "hPa", "attribution": "Weather forecast from met.no", "supported_features": 3}),
+    ("weather.openweathermap", None, "sunny", {"friendly_name": "OpenWeatherMap", "temperature": 18.1, "temperature_unit": "°C", "humidity": 58, "wind_speed": 11.2, "wind_speed_unit": "km/h", "supported_features": 3}),
     ("sensor.internet_download", None, "312.5", {"friendly_name": "Internet Download", "unit_of_measurement": "Mbit/s", "state_class": "measurement", "icon": "mdi:download-network"}),
 ]
 
@@ -290,7 +292,8 @@ class DemoClient:
                     pretty = obj.replace("_", " ").title()
                 self._add(eid, did, None, state, {"friendly_name": pretty, **attrs}, extra)
         for eid, area, state, attrs in LOOSE:
-            self._add(eid, None, area, state, attrs, {})
+            platform = {"weather.forecast_home": "met", "weather.openweathermap": "openweathermap"}.get(eid, "demo")
+            self._add(eid, None, area, state, attrs, {"platform": platform})
 
     def _add(self, eid, device_id, area_id, state, attrs, extra) -> None:
         self.entities.append({
@@ -368,6 +371,9 @@ class DemoClient:
                 for d, svcs in SERVICES.items()
             }
         if msg_type == "call_service":
+            if kw["domain"] == "weather" and kw["service"] == "get_forecasts":
+                eid = kw["target"]["entity_id"]
+                return {"context": {}, "response": {eid: {"forecast": self._forecast(eid)}}}
             self._service(kw["domain"], kw["service"], kw.get("service_data") or {}, kw["target"]["entity_id"])
             return {"context": {}}
         if msg_type == "camera/stream":
@@ -375,6 +381,20 @@ class DemoClient:
         if msg_type == "history/history_during_period":
             return self._history(kw["entity_ids"][0], kw["start_time"])
         raise HAError(f"Demo does not support {msg_type}")
+
+    def _forecast(self, eid: str) -> list[dict]:
+        rnd = random.Random(eid)
+        conditions = ["sunny", "partlycloudy", "cloudy", "rainy", "sunny", "pouring", "partlycloudy"]
+        today = datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
+        out = []
+        for d in range(7):
+            high = round(17 + rnd.uniform(-4, 5), 1)
+            out.append({
+                "datetime": (today + timedelta(days=d)).isoformat(), "condition": conditions[(d + len(eid)) % len(conditions)],
+                "temperature": high, "templow": round(high - rnd.uniform(5, 9), 1),
+                "precipitation_probability": rnd.choice([0, 10, 20, 60, 80]),
+            })
+        return out
 
     def _history(self, eid: str, start_iso: str) -> dict:
         st = self.states.get(eid)

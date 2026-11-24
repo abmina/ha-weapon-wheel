@@ -43,6 +43,8 @@ you're at the controls. New devices show up on their own as soon as you assign t
   | Switches, scenes, scripts, buttons, numbers, selects, text, timers, counters, updates | … |
 
   Plus a **24-hour history** chart, **more actions** from the entity's services, and all its **attributes**.
+- **Weather** - the current weather and forecast in the corner of the house, from Home Assistant's Met.no or any
+  other weather integration you choose.
 - **Live** - states update instantly. Changes to areas, devices or floors in Home Assistant appear without a restart.
 - **Customize** - name your house, hide, rename or reorder floors, rooms, devices and entities, move a room to
   another floor, or mark a level as **Outdoor** so its rooms show in a garden next to the house.

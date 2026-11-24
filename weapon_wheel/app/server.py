@@ -293,6 +293,7 @@ def build_model(
             "device_class": attrs.get("device_class"),
             "entity_category": ent.get("entity_category"),
             "device_id": dev["id"] if dev else None,
+            "platform": ent.get("platform"),  # the integration, e.g. "met" for Home Assistant's own weather
             "node": None,
             "area_id": None,
         }
@@ -595,6 +596,30 @@ async def handle_call(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def handle_forecast(request: web.Request) -> web.Response:
+    """Daily (or hourly) forecast of a weather entity, via the weather.get_forecasts action."""
+    hub: Hub = request.app[HUB]
+    entity_id = request.query.get("entity_id", "")
+    kind = request.query.get("type", "daily")
+    if not ENTITY_RE.match(entity_id) or not entity_id.startswith("weather."):
+        return json_error(400, "Invalid weather entity_id")
+    if kind not in ("daily", "hourly", "twice_daily"):
+        return json_error(400, "Invalid forecast type")
+    try:
+        result = await hub.client.call(
+            "call_service",
+            domain="weather",
+            service="get_forecasts",
+            service_data={"type": kind},
+            target={"entity_id": entity_id},
+            return_response=True,
+        )
+    except (HAError, asyncio.TimeoutError) as err:
+        return json_error(502, str(err) or "Forecast not available")
+    forecast = ((result or {}).get("response") or {}).get(entity_id, {}).get("forecast") or []
+    return web.json_response({"entity_id": entity_id, "type": kind, "forecast": forecast[:8]})
+
+
 async def handle_camera_stream(request: web.Request) -> web.Response:
     """Ask Home Assistant for an HLS stream URL for a camera (needs the stream integration)."""
     hub: Hub = request.app[HUB]
@@ -710,6 +735,7 @@ def create_app() -> web.Application:
     app.router.add_post("/api/call", handle_call)
     app.router.add_get("/api/history", handle_history)
     app.router.add_get("/api/camera_stream", handle_camera_stream)
+    app.router.add_get("/api/forecast", handle_forecast)
     if getattr(hub.client, "demo", False):
         hub.client.add_routes(app)
     app.router.add_get("/api/ws", handle_ws)

@@ -409,6 +409,38 @@ details[open] > summary .caret { transform: rotate(90deg); }
 #editor .picker { border-radius: 0; }
 .tree-group > summary .trow .ico { color: var(--primary); }
 
+/* ---------- weather card (top left of the house) ---------- */
+.wx {
+  position: absolute; z-index: 5; top: 12px; left: max(16px, env(safe-area-inset-left, 0px));
+  display: block; text-align: left; cursor: pointer; font: inherit; color: var(--text);
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px;
+  box-shadow: var(--shadow); min-width: 170px; max-width: min(300px, calc(100% - 32px));
+}
+.wx:hover { border-color: var(--primary); }
+.wx:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.wx-inner { display: flex; flex-direction: column; gap: 6px; }
+.wx-now { display: flex; align-items: center; gap: 10px; }
+.wx-icon { font-size: 40px; color: var(--warn); line-height: 1; }
+.wx-temp { font-size: 24px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.wx-cond { color: var(--muted); font-size: 13px; }
+.wx-range { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.wx-days { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; border-top: 1px solid var(--line); padding-top: 6px; }
+.wx-day { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 12px; }
+.wx-day .mdi { font-size: 18px; color: var(--muted); }
+.wx-dn { color: var(--muted); }
+.wx-dt { font-variant-numeric: tabular-nums; }
+.wx .wx-edit { position: absolute; top: -10px; right: -10px; transform: none; }
+.wx.preview { position: static; box-shadow: none; cursor: default; }
+.wx-select { width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.settings .wx-select { width: auto; max-width: 100%; flex: 0 1 380px; }
+/* phones: keep it small so it doesn't cover the house */
+@media (max-width: 560px) {
+  .wx { min-width: 0; padding: 6px 10px; }
+  .wx-range, .wx-days { display: none; }
+  .wx-icon { font-size: 28px; }
+  .wx-temp { font-size: 18px; }
+}
+
 /* ---------- floor-plan editor ---------- */
 #plan-bar {
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 15; max-width: calc(100% - 24px);

@@ -299,6 +299,17 @@ const ROOM_ICONS = [
   [/pool/i, 'pool'], [/server|network|tech/i, 'server-network'], [/closet|wardrobe|dressing/i, 'hanger'],
 ];
 
+const WEATHER = {
+  'clear-night': ['weather-night', 'Clear night'], cloudy: ['weather-cloudy', 'Cloudy'],
+  exceptional: ['alert-circle-outline', 'Exceptional'], fog: ['weather-fog', 'Fog'], hail: ['weather-hail', 'Hail'],
+  lightning: ['weather-lightning', 'Lightning'], 'lightning-rainy': ['weather-lightning-rainy', 'Thunderstorm'],
+  partlycloudy: ['weather-partly-cloudy', 'Partly cloudy'], pouring: ['weather-pouring', 'Pouring'],
+  rainy: ['weather-rainy', 'Rainy'], snowy: ['weather-snowy', 'Snowy'], 'snowy-rainy': ['weather-snowy-rainy', 'Sleet'],
+  sunny: ['weather-sunny', 'Sunny'], windy: ['weather-windy', 'Windy'], 'windy-variant': ['weather-windy-variant', 'Windy'],
+};
+const weatherIcon = (cond) => `mdi:${(WEATHER[cond] || ['weather-partly-cloudy'])[0]}`;
+const weatherLabel = (cond) => (WEATHER[cond] || [null, pretty(cond)])[1];
+
 function entityIcon(eid) {
   const ov = L('entities', eid).icon;
   if (ov) return ov;
@@ -313,6 +324,7 @@ function entityIcon(eid) {
   const pick = (pair, active) => `mdi:${pair[active ? 0 : 1]}`;
   switch (d) {
     case 'light': return v === 'on' ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline';
+    case 'weather': return weatherIcon(v);
     case 'lock': return v === 'locked' ? 'mdi:lock' : 'mdi:lock-open-variant';
     case 'fan': return v === 'on' ? 'mdi:fan' : 'mdi:fan-off';
     case 'switch': return dc === 'outlet' ? 'mdi:power-socket-eu' : (v === 'on' ? 'mdi:toggle-switch-variant' : 'mdi:toggle-switch-variant-off');
@@ -410,6 +422,8 @@ function stateParts(eid) {
       if (l) return [v === 'on' ? l[0] : l[1], ''];
       break;
     }
+    case 'weather':
+      return [weatherLabel(v), a.temperature != null ? `· ${fmtNum(a.temperature)}${a.temperature_unit || '°'}` : ''];
     case 'button': case 'input_button': return ['Ready', ''];
     case 'scene': return ['Scene', ''];
     case 'sensor':
@@ -498,8 +512,8 @@ function houseGeometry(allVisible) {
     bands.push(band);
     y += height;
   };
-  const layoutFloor = (f, x0, x1, under) => {
-    if (M().custom) { layoutPlanned(f, x0, x1, under); return; }
+  const layoutFloor = (f, x0, x1, under, auto = false) => {
+    if (M().custom && !auto) { layoutPlanned(f, x0, x1, under); return; }
     const n = f.areas.length;
     const rows = Math.max(1, Math.ceil(n / maxCols));
     const perRow = Math.ceil(n / rows);
@@ -521,14 +535,27 @@ function houseGeometry(allVisible) {
   const groundY = y;
   if (below.length) y += 18;
   for (const f of below) layoutFloor(f, X0 + 30, X1 - 30, true);
-  const H = y + 36;
-  // Outdoor levels: each one is a fenced garden standing on the ground to the right of the house.
-  let W = HW;
+  // Phones and other portrait screens: outdoor levels become full-width gardens below the house,
+  // so the house keeps the whole width and uses the screen's height.
+  const stageEl = $('#stage');
+  const narrow = maxCols === 2 || stageEl.clientWidth < stageEl.clientHeight * 0.9;
   const gardens = [];
+  if (narrow) {
+    for (const yard of yards) {
+      y += 30;
+      layoutFloor(yard, X0 - 40, X1 + 40, false, true);
+      const g = bands[bands.length - 1];
+      g.outdoor = true;
+      gardens.push(g);
+    }
+  }
+  const H = y + 36;
+  // Wider screens: each outdoor level is a fenced garden standing on the ground to the right of the house.
+  let W = HW;
   let gx0 = X1 + 80;
   let gBottom = groundY; // on narrow screens gardens stack upwards instead of side by side
   let colRight = gx0;
-  for (const yard of yards) {
+  for (const yard of narrow ? [] : yards) {
     const n = yard.areas.length;
     const ROOMW = 270;
     const maxRows = Math.max(1, Math.floor((groundY - TOP - LABEL - PAD + GAP) / (ROWH + GAP)));
@@ -549,7 +576,7 @@ function houseGeometry(allVisible) {
     colRight = Math.max(stack ? colRight : 0, garden.x1);
     W = Math.max(W, garden.x1 + 30);
   }
-  return { bands, gardens, X0, X1, TOP, ROOF, groundY, H, W, hasAbove: above.length > 0 };
+  return { bands, gardens, narrow, X0, X1, TOP, ROOF, groundY, H, W, hasAbove: above.length > 0 };
 }
 
 function buildHouse() {
@@ -588,7 +615,7 @@ function buildHouse() {
 
   // Earth + ground line
   parts.push(s('rect', { class: 'h-earth', x: 0, y: g.groundY, width: g.W, height: g.H - g.groundY }));
-  if (g.gardens.length) { // a tree between the house and the garden
+  if (g.gardens.length && !g.narrow) { // a tree between the house and the garden
     const tx = g.X1 + 40, ty = g.groundY;
     parts.push(s('rect', { class: 'h-trunk', x: tx - 4, y: ty - 34, width: 8, height: 34 }));
     parts.push(s('circle', { class: 'h-tree', cx: tx, cy: ty - 52, r: 24 }));
@@ -643,6 +670,7 @@ function buildHouse() {
     onclick: () => openCardEditor(r.aid),
   }, ico('mdi:pencil'))) : []));
   $('#house').classList.toggle('plan-edit', !!S.plan);
+  paintWeather();
   sizeHouse();
   paintHouse();
 }
@@ -857,7 +885,116 @@ function roomStats(aid) {
   return { devices: nodes.length, leaves: roomItems(aid).length, lights, active, temp, motion, open, chips };
 }
 
+// ===================================================================
+// Weather card (top left of the house)
+// ===================================================================
+/** All weather entities, Home Assistant's own Met.no first. */
+function weatherEntities() {
+  return Object.values(S.model?.entities || {})
+    .filter((e) => e.domain === 'weather' && S.states[e.entity_id])
+    .sort((a, b) => ((b.platform === 'met') - (a.platform === 'met')) || (a.full_name || '').localeCompare(b.full_name || ''));
+}
+/** The weather entity to show: the user's choice, else Met.no, else the first one; null = don't show. */
+function weatherEntity(settings = S.layout.settings || {}) {
+  const choice = settings.weather;
+  if (choice === 'none') return null;
+  if (choice && S.states[choice]) return choice;
+  return weatherEntities()[0]?.entity_id || null;
+}
+const forecasts = {}; // entity_id -> { at, list }
+function loadForecast(eid) {
+  const f = forecasts[eid];
+  if (f && (f.loading || Date.now() - f.at < 30 * 60000)) return;
+  forecasts[eid] = { ...(f || {}), loading: true };
+  api(`api/forecast?entity_id=${encodeURIComponent(eid)}&type=daily`)
+    .then((d) => { forecasts[eid] = { at: Date.now(), list: d.forecast || [] }; })
+    .catch(() => { forecasts[eid] = { at: Date.now(), list: [] }; }) // not every integration has a forecast
+    .finally(() => { if (S.nav.level === 'house') paintWeather(); });
+}
+const dayName = (iso, i) => (i === 0 ? 'Today' : new Date(iso).toLocaleDateString(undefined, { weekday: 'short' }));
+
+function weatherCard(eid, compact = false) {
+  const st = S.states[eid];
+  const a = st.attributes || {};
+  const unit = a.temperature_unit || '°';
+  const list = forecasts[eid]?.list || [];
+  const today = list[0];
+  return h('div', { class: 'wx-inner' },
+    h('div', { class: 'wx-now' },
+      ico(weatherIcon(st.state), 'wx-icon'),
+      h('div', { class: 'wx-main' },
+        h('div', { class: 'wx-temp' }, a.temperature != null ? `${fmtNum(a.temperature)}${unit}` : '–'),
+        h('div', { class: 'wx-cond' }, weatherLabel(st.state)))),
+    !compact && today && today.temperature != null
+      ? h('div', { class: 'wx-range' }, `H ${fmtNum(today.temperature)}° · L ${today.templow != null ? `${fmtNum(today.templow)}°` : '–'}`
+        + (a.humidity != null ? ` · ${fmtNum(a.humidity)}% humidity` : ''))
+      : null,
+    !compact && list.length > 1 ? h('div', { class: 'wx-days' }, list.slice(1, 5).map((d, i) => h('div', { class: 'wx-day' },
+      h('span', { class: 'wx-dn' }, dayName(d.datetime, i + 1)),
+      ico(weatherIcon(d.condition)),
+      h('span', { class: 'wx-dt' }, d.temperature != null ? `${Math.round(d.temperature)}°` : '')))) : null);
+}
+
+function paintWeather() {
+  const box = $('#weather');
+  const eid = weatherEntity();
+  if (!eid || !S.model) { if (!box.hidden) { box.hidden = true; sizeHouse(); } return; }
+  loadForecast(eid);
+  box.hidden = false;
+  box.title = `${entName(eid)}: tap for details`;
+  const wasHidden = box.hidden;
+  box.replaceChildren(weatherCard(eid),
+    S.plan ? h('button', { class: 'card-edit wx-edit', title: 'Choose the weather to show', onclick: (e) => { e.stopPropagation(); openWeatherEditor(); } }, ico('mdi:pencil')) : null);
+  if (wasHidden) sizeHouse(); // the house may need to make room for it
+}
+$('#weather').addEventListener('click', () => {
+  if (S.plan) { openWeatherEditor(); return; }
+  const eid = weatherEntity();
+  if (eid) openEntity(eid);
+});
+
+/** Edit-mode dialog: pick which weather entity the house shows. */
+function openWeatherEditor() {
+  W = JSON.parse(JSON.stringify(S.layout));
+  W.settings ||= {};
+  const ed = $('#card-editor');
+  const preview = h('div', { class: 'card-preview' });
+  const drawPreview = () => {
+    const eid = weatherEntity(W.settings);
+    preview.replaceChildren(eid ? h('div', { class: 'wx preview' }, weatherCard(eid)) : h('span', { class: 'muted' }, 'No weather on the house'));
+    if (eid) loadForecast(eid);
+  };
+  const close = () => { ed.hidden = true; W = null; };
+  ed.replaceChildren(h('div', { class: 'modal-card card-dialog', role: 'dialog', 'aria-label': 'Weather' },
+    h('div', { class: 'modal-head' }, h('h2', {}, 'Weather'), h('button', { class: 'sb-close', onclick: close, title: 'Close' }, ico('mdi:close'))),
+    h('div', { class: 'modal-body card-body' },
+      h('div', { class: 'card-form' },
+        h('label', { class: 'field' }, h('span', {}, 'Show weather from'), weatherSelect(drawPreview)),
+        h('p', { class: 'muted' }, 'Any weather integration you have in Home Assistant works. Automatic uses Home Assistant’s own Met.no weather when you have it.')),
+      h('div', { class: 'card-side' }, h('span', { class: 'muted' }, 'Preview'), preview)),
+    h('div', { class: 'modal-foot' }, h('span', { class: 'spacer' }), act('Cancel', null, close, 'small'),
+      act('Save', 'mdi:content-save', async () => { S.layout = W; close(); await saveLayout(); paintWeather(); toast('Weather saved'); }, 'small primary'))));
+  ed.hidden = false;
+  drawPreview();
+}
+/** <select> bound to W.settings.weather: Automatic, each weather entity, or none. */
+function weatherSelect(onChange) {
+  const opts = weatherEntities();
+  const auto = opts[0];
+  const sel = h('select', { class: 'wx-select' },
+    h('option', { value: '' }, auto ? `Automatic (${auto.full_name}${auto.platform === 'met' ? ', Met.no' : ''})` : 'Automatic (no weather found)'),
+    opts.map((e) => h('option', { value: e.entity_id }, `${e.full_name} · ${e.platform === 'met' ? 'Met.no' : pretty(e.platform || 'weather')}`)),
+    h('option', { value: 'none' }, "Don't show weather"));
+  sel.value = W.settings.weather || '';
+  sel.addEventListener('change', () => {
+    if (sel.value) W.settings.weather = sel.value; else delete W.settings.weather;
+    onChange?.();
+  });
+  return sel;
+}
+
 function paintHouse() {
+  paintWeather();
   for (const r of S.rooms) {
     const st = roomStats(r.aid);
     r.stats = st;
@@ -878,8 +1015,14 @@ function sizeHouse() {
   const stage = $('#stage');
   const availW = stage.clientWidth * 0.96;
   const bar = S.plan ? $('#plan-bar').offsetHeight + 20 : 0; // keep the house clear of the plan toolbar
-  houseView.style.paddingTop = bar ? `${bar}px` : '';
-  const availH = stage.clientHeight - 24 - bar;
+  // On portrait screens the house is as wide as the screen, so it starts below the weather card.
+  const wxEl = $('#weather');
+  wxEl.style.top = `${bar + 12}px`;
+  const portrait = stage.clientWidth < stage.clientHeight;
+  const wxSpace = portrait && !wxEl.hidden ? wxEl.offsetHeight + 16 : 0;
+  const top = bar + wxSpace;
+  houseView.style.paddingTop = top ? `${top}px` : '';
+  const availH = stage.clientHeight - 24 - top;
   const w = Math.min(availW, availH * (g.W / g.H), 1300 * (g.W / HW));
   const frame = $('#house-frame');
   frame.style.width = `${w}px`;
@@ -2416,7 +2559,8 @@ function settingsBlock() {
     h('label', { class: 'house-name' }, h('span', {}, 'House name'), name),
     settingBox('hideEmptyRooms', 'Hide rooms without devices'),
     settingBox('skipSingleEntity', 'Skip entity wheel for single-entity devices'),
-    settingBox('noGrouping', 'Group devices of the same integration', true));
+    settingBox('noGrouping', 'Group devices of the same integration', true),
+    h('label', { class: 'house-name' }, h('span', {}, 'Weather'), weatherSelect()));
 }
 /** Checkbox bound to a layout setting; `invert` shows a setting stored as "off" (e.g. noGrouping) as a positive option. */
 function settingBox(key, label, invert = false) {
@@ -2592,6 +2736,7 @@ document.addEventListener('keydown', (e) => {
   if (e.target.matches('input, select, textarea')) return;
   const lvl = S.nav.level;
   if (lvl === 'house') {
+    if (e.key === 'Escape' && document.body.classList.contains('sidebar-open')) { closeSidebar(); return; }
     const n = S.rooms.length;
     if (!n) return;
     if (['ArrowRight', 'ArrowDown'].includes(e.key)) { setHouseFocus((S.houseFocus + 1) % n); e.preventDefault(); }
@@ -2736,12 +2881,14 @@ async function boot() {
   renderCrumbs();
 }
 
-let lastCols = 0;
+let lastShape = '';
 new ResizeObserver(() => {
   if (S.nav.level !== 'house' || !S.model) return;
-  const w = $('#stage').clientWidth;
-  const cols = w < 560 ? 2 : w < 900 ? 3 : 5;
-  if (cols !== lastCols) { lastCols = cols; buildHouse(); } else sizeHouse();
+  const st = $('#stage');
+  const w = st.clientWidth;
+  // Rebuild when the column count or portrait/landscape changes (gardens move), otherwise just rescale.
+  const shape = `${w < 560 ? 2 : w < 900 ? 3 : 5}/${w < st.clientHeight * 0.9 ? 'p' : 'l'}`;
+  if (shape !== lastShape) { lastShape = shape; buildHouse(); } else sizeHouse();
 }).observe($('#stage'));
 connectWS();
 boot();

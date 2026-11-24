@@ -115,8 +115,14 @@ The dashboard follows your device's **light or dark mode** automatically.
 - **Hover** over a room (mouse) to see a tooltip with the device count and exactly what the card shows, with names.
 - **Click or tap** a room to open its wheel.
 
-**Outdoor rooms.** Rooms on a level marked **Outdoor** are drawn in a fenced garden next to the house. On phones the
-gardens stack beside the house.
+**Outdoor rooms.** Rooms on a level marked **Outdoor** are drawn in a fenced garden next to the house. On phones and
+other portrait screens the gardens are drawn below the house instead, so the house can use the full width.
+
+**Weather.** The top-left corner shows the current weather: condition, temperature, today's high and low, humidity and
+the next few days (phones show just the condition and temperature). Tap it for details and history. By default it uses
+Home Assistant's own **Met.no** weather (or the first weather entity it finds). To use another weather integration,
+or to hide it, pick one in **Customize → Weather**, or tap the pencil on the weather card in
+[edit mode](#10-edit-mode-and-room-cards).
 
 ![Outdoor garden](images/manual/outdoor.png)
 
@@ -236,6 +242,9 @@ Every room card gets a **pencil**. It opens the **card editor**:
 Click **Save** to apply the card, then **Done** (or **Save** in a custom home) to leave edit mode. **Customize…** in the
 edit toolbar opens the Customize window.
 
+The **weather card** also gets a pencil in edit mode: choose any weather entity you have (Met.no, OpenWeatherMap,
+AccuWeather and so on), *Automatic*, or *Don't show weather*, with a preview.
+
 In a **custom home**, edit mode is also the [floor-plan editor](#floor-plan).
 
 ## 11. Customize the automatic home
@@ -252,6 +261,7 @@ take effect when you click **Save**, and they only affect the dashboard, never H
 - **Hide rooms without devices**.
 - **Skip entity wheel for single-entity devices**: a device with one control opens it straight away.
 - **Group devices of the same integration**: turn integration groups on or off.
+- **Weather**: which weather entity the house shows, *Automatic* (Met.no first) or *Don't show weather*.
 
 **The tree**, with levels → rooms → groups → devices → entities, arranged exactly like the wheels:
 
@@ -350,7 +360,9 @@ Save, then restart the app for options to take effect.
 
 On phones the sidebar slides up from the bottom and the wheel moves up to make room.
 
-![Phone](images/manual/phone-control.png)
+| House on a phone | Controls on a phone |
+|---|---|
+| ![Phone house](images/manual/phone-house.png) | ![Phone controls](images/manual/phone-control.png) |
 
 ## 15. Updates, backups and where settings are kept
 

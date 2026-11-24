@@ -145,6 +145,18 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         r = await self.client.get("/api/camera_proxy/camera.porch_camera")
         self.assertEqual(r.content_type, "image/png")
 
+    async def test_forecast(self):
+        r = await self.client.get("/api/forecast?entity_id=weather.forecast_home")
+        data = await r.json()
+        self.assertEqual(len(data["forecast"]), 7)
+        self.assertIn("templow", data["forecast"][0])
+        r = await self.client.get("/api/forecast?entity_id=light.kitchen_spots")
+        self.assertEqual(r.status, 400)
+
+    async def test_weather_platform_in_model(self):
+        data = await (await self.client.get("/api/model")).json()
+        self.assertEqual(data["model"]["entities"]["weather.forecast_home"]["platform"], "met")
+
     async def test_index_served(self):
         r = await self.client.get("/")
         self.assertEqual(r.status, 200)
