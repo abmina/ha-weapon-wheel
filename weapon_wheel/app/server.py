@@ -300,7 +300,7 @@ def build_model(
         out_floors.append(
             {
                 "id": "__unassigned__",
-                "name": "Unassigned rooms" if floors else "Home",
+                "name": "Unassigned level" if floors else "Home",
                 "level": None if floors else 0,
                 "icon": None,
             }

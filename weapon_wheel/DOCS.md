@@ -7,7 +7,7 @@ Open the dashboard from **Weapon Wheel** in the sidebar (turn on *Show in sideba
 The app reads Home Assistant's registries, and picks up any change to them automatically:
 
 - **Floors** become the storeys of the house, ordered by their *level*. Negative levels are drawn below the ground line.
-- **Areas** become the rooms on their floor. Areas without a floor go in an extra *Unassigned rooms* storey. If you
+- **Areas** become the rooms on their floor. Areas without a floor go in an extra *Unassigned level* storey. If you
   have no floors at all, every room goes in one storey called *Home*.
 - **Devices** in an area make up that room's device wheel. A device whose entities are spread over several areas
   appears in each of them, with just the entities for that room. Entities assigned to an area directly, without a device
@@ -37,6 +37,8 @@ Click **Customize** (top right) to:
 - show or hide any floor, room, device or entity (eye button);
 - rename them for this dashboard (leave the field empty to use the Home Assistant name);
 - reorder rooms on a floor and move a room to a different floor;
+- tick **Outdoor** on a level to show all its rooms in a garden outside the house (for example a *Garden* or
+  *Outside* floor, or the *Unassigned level*), or move a single room to the built-in **Outdoor** level;
 - hide rooms that have no devices;
 - skip the entity wheel for devices that have only one entity.
 

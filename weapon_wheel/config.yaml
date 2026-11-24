@@ -1,5 +1,5 @@
 name: Weapon Wheel Dashboard
-version: "0.2.2"
+version: "0.2.3"
 slug: weapon_wheel
 description: Game-style dashboard - a house map with clickable rooms that open weapon-wheel menus for your devices and entities
 url: https://github.com/abmina/ha-weapon-wheel

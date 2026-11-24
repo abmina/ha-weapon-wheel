@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+- Outdoor levels: in *Customize*, tick **Outdoor** on any level and all its rooms are shown in a garden outside the
+  house, standing on the grass next to it. Single rooms can be moved outside with the built-in **Outdoor** level in a
+  room's level list. Each outdoor level gets its own garden; on phones they stack next to the house.
+- Rooms without a level are now grouped as **Unassigned level** (was "Unassigned rooms").
+
 ## 0.2.2
 - Name your house: *Customize → House name*. The name shows on the roof of the house, as the first step of the
   navigation bar and in the browser tab. Leave it empty to use the home name from Home Assistant

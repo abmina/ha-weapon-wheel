@@ -108,6 +108,12 @@ const devName = (nid) => {
 const entName = (eid) => L('entities', eid).name || M().entities[eid]?.name || eid;
 const domainOf = (eid) => eid.split('.', 1)[0];
 const areaFloor = (aid) => L('areas', aid).floor || M().areas[aid].floor_id;
+/** Rooms placed here are drawn in the garden next to the house instead of inside it. */
+const OUTDOOR = '__outdoor__';
+const OUTDOOR_FLOOR = { id: OUTDOOR, name: 'Outdoor', level: null, icon: 'mdi:tree', outdoor: true };
+const allFloors = () => [...M().floors, OUTDOOR_FLOOR];
+/** A level is outdoor if it is the built-in Outdoor level or was marked outdoor in Customize. */
+const isOutdoorFloor = (f) => !!(f.id === OUTDOOR || L('floors', f.id).outdoor);
 
 function sortAreas(ids) {
   return [...ids].sort((a, b) => {
@@ -138,14 +144,15 @@ function visibleFloors(includeHidden = false) {
   for (const aid of Object.keys(m.areas)) {
     if (!includeHidden && isHidden('areas', aid)) continue;
     let fid = areaFloor(aid);
-    if (!m.floors.some((f) => f.id === fid)) fid = m.areas[aid].floor_id;
+    if (!allFloors().some((f) => f.id === fid)) fid = m.areas[aid].floor_id;
     (byFloor[fid] ||= []).push(aid);
   }
   const hideEmpty = setting('hideEmptyRooms');
-  return m.floors
+  return allFloors()
     .filter((f) => includeHidden || !isHidden('floors', f.id))
     .map((f) => ({
       ...f,
+      outdoor: isOutdoorFloor(f),
       areas: sortAreas(byFloor[f.id] || []).filter((aid) => includeHidden || !hideEmpty || visibleNodes(aid).length),
     }))
     .filter((f) => includeHidden || f.areas.length);
@@ -358,7 +365,9 @@ const HW = 1000;
 const houseView = $('#house-view');
 const wheelView = $('#wheel-view');
 
-function houseGeometry(floors) {
+function houseGeometry(allVisible) {
+  const yards = allVisible.filter((f) => f.outdoor && f.areas.length);
+  const floors = allVisible.filter((f) => !f.outdoor);
   const above = floors.filter((f) => f.level == null || f.level >= 0)
     .sort((a, b) => (b.level ?? -0.5) - (a.level ?? -0.5));
   const below = floors.filter((f) => f.level != null && f.level < 0).sort((a, b) => b.level - a.level);
@@ -391,7 +400,34 @@ function houseGeometry(floors) {
   if (below.length) y += 18;
   for (const f of below) layoutFloor(f, X0 + 30, X1 - 30, true);
   const H = y + 36;
-  return { bands, X0, X1, TOP, ROOF, groundY, H, hasAbove: above.length > 0 };
+  // Outdoor levels: each one is a fenced garden standing on the ground to the right of the house.
+  let W = HW;
+  const gardens = [];
+  let gx0 = X1 + 80;
+  let gBottom = groundY; // on narrow screens gardens stack upwards instead of side by side
+  let colRight = gx0;
+  for (const yard of yards) {
+    const n = yard.areas.length;
+    const ROOMW = 270;
+    const maxRows = Math.max(1, Math.floor((groundY - TOP - LABEL - PAD + GAP) / (ROWH + GAP)));
+    const cols = Math.ceil(n / maxRows);
+    const rows = Math.ceil(n / cols);
+    const gh = LABEL + rows * ROWH + (rows - 1) * GAP + PAD;
+    const gw = 2 * PAD + cols * ROOMW + (cols - 1) * GAP;
+    const stack = maxCols === 2 && gardens.length && gBottom - gh >= TOP;
+    if (!stack && gardens.length) { gx0 = colRight + 40; gBottom = groundY; }
+    const gy = gBottom - gh;
+    const rooms = yard.areas.map((aid, k) => ({
+      aid, x: gx0 + PAD + (k % cols) * (ROOMW + GAP), y: gy + LABEL + Math.floor(k / cols) * (ROWH + GAP), w: ROOMW, h: ROWH,
+    }));
+    const garden = { floor: yard, x0: gx0, x1: gx0 + gw, y: gy, h: gh, rooms, outdoor: true };
+    gardens.push(garden);
+    bands.push(garden);
+    gBottom = gy - 20;
+    colRight = Math.max(stack ? colRight : 0, garden.x1);
+    W = Math.max(W, garden.x1 + 30);
+  }
+  return { bands, gardens, X0, X1, TOP, ROOF, groundY, H, W, hasAbove: above.length > 0 };
 }
 
 function buildHouse() {
@@ -405,7 +441,7 @@ function buildHouse() {
   if (empty) return;
   const g = houseGeometry(floors);
   S.houseGeom = g;
-  svg.setAttribute('viewBox', `0 0 ${HW} ${g.H}`);
+  svg.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
   const parts = [];
   parts.push(s('defs', {},
     s('linearGradient', { id: 'earth', x1: 0, y1: 0, x2: 0, y2: 1 },
@@ -422,12 +458,18 @@ function buildHouse() {
   parts.push(s('path', { class: 'h-attic', d: `M${HW / 2 - 20},${apexY + g.ROOF * 0.62}h40M${HW / 2},${apexY + g.ROOF * 0.62 - 20}v40` }));
 
   // Earth + ground line
-  parts.push(s('rect', { class: 'h-earth', x: 0, y: g.groundY, width: HW, height: g.H - g.groundY }));
+  parts.push(s('rect', { class: 'h-earth', x: 0, y: g.groundY, width: g.W, height: g.H - g.groundY }));
+  if (g.gardens.length) { // a tree between the house and the garden
+    const tx = g.X1 + 40, ty = g.groundY;
+    parts.push(s('rect', { class: 'h-trunk', x: tx - 4, y: ty - 34, width: 8, height: 34 }));
+    parts.push(s('circle', { class: 'h-tree', cx: tx, cy: ty - 52, r: 24 }));
+  }
 
   const roomEls = [];
   const pinEls = [];
   for (const b of g.bands) {
-    parts.push(s('rect', { class: `h-wall ${b.under ? 'under' : ''} ${b.floor.id === '__unassigned__' ? 'annex' : ''}`, x: b.x0, y: b.y, width: b.x1 - b.x0, height: b.h }));
+    const wallCls = b.outdoor ? 'h-garden' : `h-wall ${b.under ? 'under' : ''} ${b.floor.id === '__unassigned__' ? 'annex' : ''}`;
+    parts.push(s('rect', { class: wallCls, x: b.x0, y: b.y, width: b.x1 - b.x0, height: b.h, rx: b.outdoor ? 16 : 0 }));
     parts.push(s('text', { class: 'h-floor-label', x: b.x0 + 16, y: b.y + 23 }, floorName(b.floor)));
     for (const r of b.rooms) {
       const idx = S.rooms.length;
@@ -446,13 +488,13 @@ function buildHouse() {
     }
   }
   parts.push(roofName);
-  parts.push(s('line', { class: 'h-ground', x1: 10, x2: HW - 10, y1: g.groundY, y2: g.groundY }));
+  parts.push(s('line', { class: 'h-ground', x1: 10, x2: g.W - 10, y1: g.groundY, y2: g.groundY }));
   svg.replaceChildren(...parts, ...roomEls, ...pinEls);
 
   labels.replaceChildren(...S.rooms.map((r) => {
     const el = h('div', {
       class: 'room-label',
-      style: `left:${((r.x + r.w / 2) / HW) * 100}%;top:${((r.y + r.h / 2 + 18) / g.H) * 100}%;max-width:${(r.w / HW) * 100 - 1}%`,
+      style: `left:${((r.x + r.w / 2) / g.W) * 100}%;top:${((r.y + r.h / 2 + 18) / g.H) * 100}%;max-width:${(r.w / g.W) * 100 - 1}%`,
     }, ico(roomIcon(r.aid)), h('div', { class: 'name' }, areaName(r.aid)), h('div', { class: 'chips' }));
     r.label = el;
     return el;
@@ -507,11 +549,11 @@ function sizeHouse() {
   const stage = $('#stage');
   const availW = stage.clientWidth * 0.96;
   const availH = stage.clientHeight - 24;
-  const w = Math.min(availW, availH * (HW / g.H), 1300);
+  const w = Math.min(availW, availH * (g.W / g.H), 1300 * (g.W / HW));
   const frame = $('#house-frame');
   frame.style.width = `${w}px`;
-  frame.style.height = `${(w * g.H) / HW}px`;
-  frame.style.fontSize = `${Math.max(10.5, (w / HW) * 15)}px`;
+  frame.style.height = `${(w * g.H) / g.W}px`;
+  frame.style.fontSize = `${Math.max(10.5, (w / g.W) * 15)}px`;
 }
 
 function setHouseFocus(idx, fromPointer = false) {
@@ -834,10 +876,9 @@ async function enterArea(aid, room) {
     S.nav = { level: 'devices', areaId: aid, nodeId: null, entityId: null };
     if (room) {
       const g = S.houseGeom;
-      houseView.style.transformOrigin = `${((room.x + room.w / 2) / HW) * 100}% ${((room.y + room.h / 2) / g.H) * 100}%`;
       const frame = $('#house-frame').getBoundingClientRect();
       const stage = houseView.getBoundingClientRect();
-      const ox = frame.left - stage.left + ((room.x + room.w / 2) / HW) * frame.width;
+      const ox = frame.left - stage.left + ((room.x + room.w / 2) / g.W) * frame.width;
       const oy = frame.top - stage.top + ((room.y + room.h / 2) / g.H) * frame.height;
       houseView.style.transformOrigin = `${ox}px ${oy}px`;
     }
@@ -925,8 +966,8 @@ function renderCrumbs() {
   const n = S.nav;
   if (n.areaId && M().areas[n.areaId]) {
     const fid = areaFloor(n.areaId);
-    const f = M().floors.find((x) => x.id === fid);
-    if (f && M().floors.length > 1) parts.push([floorName(f), () => guard(goHouse)]);
+    const f = allFloors().find((x) => x.id === fid);
+    if (f && (isOutdoorFloor(f) || M().floors.length > 1)) parts.push([floorName(f), () => guard(goHouse)]);
     parts.push([areaName(n.areaId), n.level === 'entities' ? () => guard(leaveDevice) : null]);
   }
   if (n.nodeId && M().devices[n.nodeId]) parts.push([devName(n.nodeId), n.entityId ? closeSidebar : null]);
@@ -1375,7 +1416,7 @@ function openEditor() {
       h('button', { class: 'sb-close', onclick: closeEditor, title: 'Close' }, ico('mdi:close'))),
     h('div', { class: 'modal-body' }, settings,
       h('p', { class: 'muted', style: 'margin:4px 0 8px;font-size:13px' },
-        'Use the eye to show or hide items. Type a name to rename; leave it empty to use the Home Assistant name. Moving a room to another floor only affects this dashboard.'),
+        'Use the eye to show or hide items. Type a name to rename; leave it empty to use the Home Assistant name. Mark a level as Outdoor to show its rooms in a garden outside the house, or move single rooms to the Outdoor level. All of this only affects this dashboard.'),
       tree),
     h('div', { class: 'modal-foot' },
       act('Reset everything', 'mdi:restore', () => {
@@ -1419,6 +1460,21 @@ function settingBox(key, label) {
 }
 function closeEditor() { $('#editor').hidden = true; W = null; }
 
+/** "Outdoor" switch on a level row: its rooms are drawn in a garden outside the house. */
+function outdoorSwitch(f, tree, q) {
+  const builtIn = f.id === OUTDOOR;
+  const cb = h('input', { type: 'checkbox' });
+  cb.checked = builtIn || !!wget('floors', f.id).outdoor;
+  cb.disabled = builtIn;
+  cb.addEventListener('click', (e) => e.stopPropagation()); // don't fold the <details>
+  cb.addEventListener('change', () => { wset('floors', f.id, { outdoor: cb.checked }); renderTree(tree, q); });
+  return h('label', {
+    class: 'outdoor-switch',
+    title: builtIn ? 'Rooms on this level are always shown outside the house' : 'Show the rooms of this level outside the house',
+    onclick: (e) => e.stopPropagation(),
+  }, cb, ico('mdi:tree'), 'Outdoor');
+}
+
 function editRow({ kind, key, label, fallback, icon, orig, extra = [], summary = true }) {
   const hidden = !!wget(kind, key).hidden;
   const name = h('input', { class: 'txt', placeholder: fallback });
@@ -1450,7 +1506,7 @@ function renderTree(tree, q) {
   const match = (...strs) => !q || strs.some((x) => x && x.toLowerCase().includes(q));
   const wAreaFloor = (aid) => wget('areas', aid).floor || m.areas[aid].floor_id;
   const sortW = (ids) => [...ids].sort((a, b) => ((wget('areas', a).order ?? 1e6) - (wget('areas', b).order ?? 1e6)) || m.areas[a].name.localeCompare(m.areas[b].name));
-  const floors = [...m.floors].sort((a, b) => (b.level ?? -0.5) - (a.level ?? -0.5));
+  const floors = [...m.floors].sort((a, b) => (b.level ?? -0.5) - (a.level ?? -0.5)).concat(OUTDOOR_FLOOR);
   const out = [];
   for (const f of floors) {
     const areaIds = sortW(Object.keys(m.areas).filter((aid) => wAreaFloor(aid) === f.id));
@@ -1474,8 +1530,10 @@ function renderTree(tree, q) {
           entEls));
       }
       if (!devEls.length && !match(a.name)) return;
-      const floorSel = h('select', { title: 'Floor' }, m.floors.map((ff) => {
-        const o = h('option', { value: ff.id }, ff.name);
+      const floorSel = h('select', { title: 'Floor, or outside the house' }, allFloors().map((ff) => {
+        const label = ff.id === OUTDOOR ? 'Outdoor (outside the house)'
+          : (wget('floors', ff.id).name || ff.name) + (wget('floors', ff.id).outdoor ? ' (outdoor)' : '');
+        const o = h('option', { value: ff.id }, label);
         o.selected = ff.id === f.id;
         return o;
       }));
@@ -1507,6 +1565,7 @@ function renderTree(tree, q) {
       h('summary', {}, editRow({
         kind: 'floors', key: f.id, label: 'Floor', fallback: f.name, icon: f.icon || 'mdi:layers-outline',
         orig: f.level != null ? `level ${f.level}` : '',
+        extra: [outdoorSwitch(f, tree, q)],
       })),
       areaEls.length ? areaEls : h('div', { class: 'leaf muted' }, 'No rooms')));
   }

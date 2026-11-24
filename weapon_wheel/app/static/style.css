@@ -127,6 +127,9 @@ button, input, select { font: inherit; color: inherit; }
 .h-earth-stop { stop-color: var(--ok); }
 .h-floor-label { fill: var(--muted); font: 600 13px var(--font); letter-spacing: .08em; text-transform: uppercase; }
 .h-house-name { fill: var(--text); font: 600 24px var(--font); text-anchor: middle; }
+.h-garden { fill: color-mix(in srgb, var(--ok) 7%, var(--card)); stroke: var(--ok); stroke-opacity: .55; stroke-width: 2.5; stroke-dasharray: 2 7; stroke-linecap: round; }
+.h-tree { fill: color-mix(in srgb, var(--ok) 35%, var(--card)); stroke: var(--ok); stroke-opacity: .6; stroke-width: 2; }
+.h-trunk { fill: var(--house); }
 .h-chimney { fill: var(--card); stroke: var(--house); stroke-width: 2.5; }
 
 .room { cursor: pointer; }
@@ -350,6 +353,9 @@ details[open] > summary .caret { transform: rotate(90deg); }
 .trow .orig { font-size: 12px; color: var(--muted); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
 .trow.off .txt, .trow.off .ico { opacity: .45; }
 .trow select { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px; max-width: 150px; }
+.outdoor-switch { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+.outdoor-switch input { accent-color: var(--ok); }
+.outdoor-switch .mdi { font-size: 16px; color: var(--ok); }
 .eye { background: none; border: 0; cursor: pointer; font-size: 20px; color: var(--primary); padding: 4px; flex-shrink: 0; border-radius: 50%; }
 .eye:hover { background: var(--chip); }
 .trow.off .eye { color: var(--danger); }
