@@ -13,6 +13,7 @@ Local development:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -461,13 +462,41 @@ class Hub:
 # HTTP API
 # --------------------------------------------------------------------------
 HUB = web.AppKey("hub", Hub)
+INDEX_HTML = web.AppKey("index_html", str)
 
 def json_error(status: int, message: str) -> web.Response:
     return web.json_response({"error": message}, status=status)
 
 
+# The page's own assets get a content fingerprint in their URL (style.css?v=1a2b3c4d), so a
+# browser or the Companion app can never keep using an old copy after an update.
+VERSIONED_ASSETS = ("style.css", "app.js")
+
+
+def render_index() -> str:
+    html = (STATIC_DIR / "index.html").read_text()
+    for name in VERSIONED_ASSETS:
+        digest = hashlib.sha256((STATIC_DIR / name).read_bytes()).hexdigest()[:10]
+        html = html.replace(f'"{name}"', f'"{name}?v={digest}"')
+    return html
+
+
 async def handle_index(request: web.Request) -> web.StreamResponse:
-    return web.FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
+    return web.Response(
+        text=request.app[INDEX_HTML],
+        content_type="text/html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+    )
+
+
+async def no_stale_assets(request: web.Request, response: web.StreamResponse) -> None:
+    """Make browsers re-check the dashboard's files instead of guessing how long to cache them."""
+    if "Cache-Control" in response.headers:
+        return
+    if request.path.startswith("/vendor/"):
+        response.headers["Cache-Control"] = "public, max-age=604800"  # icon font, hls.js: fixed per image
+    else:
+        response.headers["Cache-Control"] = "no-cache"
 
 
 async def handle_model(request: web.Request) -> web.Response:
@@ -624,6 +653,8 @@ def create_app() -> web.Application:
     middlewares = [ingress_only] if os.environ.get("SUPERVISOR_TOKEN") else []
     app = web.Application(middlewares=middlewares)
     app[HUB] = hub
+    app[INDEX_HTML] = render_index()
+    app.on_response_prepare.append(no_stale_assets)
     app.router.add_get("/", handle_index)
     app.router.add_get("/api/model", handle_model)
     app.router.add_put("/api/layout", handle_layout_put)

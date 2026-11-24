@@ -9,6 +9,8 @@
   it (smooth video; hls.js is bundled, no internet needed) and falls back to MJPEG for every other camera, or when the
   HLS stream fails or doesn't start within 12 seconds. Snapshots refresh every 10 seconds, there is a full-screen
   button, and the stream stops when you close the sidebar.
+- The Companion app and browsers no longer keep showing an old version of the dashboard after an update: the page's
+  style and script files are versioned by content and always re-checked.
 
 ## 0.2.2
 - Name your house: *Customize → House name*. The name shows on the roof of the house, as the first step of the

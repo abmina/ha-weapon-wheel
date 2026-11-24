@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -125,6 +126,19 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         r = await self.client.get("/")
         self.assertEqual(r.status, 200)
         self.assertIn("app.js", await r.text())
+
+    async def test_assets_are_versioned_and_not_cached_stale(self):
+        r = await self.client.get("/")
+        html = await r.text()
+        self.assertIn("no-store", r.headers["Cache-Control"])
+        css = re.search(r'href="(style\.css\?v=[0-9a-f]{10})"', html)
+        js = re.search(r'src="(app\.js\?v=[0-9a-f]{10})"', html)
+        self.assertTrue(css and js, html[:400])
+        r = await self.client.get("/" + css.group(1))
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.headers["Cache-Control"], "no-cache")
+        r = await self.client.get("/" + js.group(1))
+        self.assertEqual(r.headers["Cache-Control"], "no-cache")
 
     async def test_call_service_and_state_push(self):
         ws = await self.client.ws_connect("/api/ws")
