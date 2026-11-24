@@ -2747,6 +2747,7 @@ $('#btn-plan').addEventListener('click', startPlanEdit);
 const fullscreen = (() => {
   const KEY = 'ww-fullscreen';
   const btn = $('#btn-full');
+  const logo = $('#topbar .logo');
   let frame = null;
   try { if (window.frameElement?.ownerDocument) frame = window.frameElement; } catch { /* other origin */ }
   const target = frame || document.documentElement;
@@ -2795,13 +2796,30 @@ const fullscreen = (() => {
     btn.firstElementChild.className = `mdi ${on ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'}`;
     btn.title = on ? "Leave full screen: show Home Assistant's title bar and sidebar"
       : "Full screen: hide Home Assistant's title bar and sidebar";
+    btn.hidden = on; // in full screen the button goes away; hold the logo to leave
+    logo.title = on ? 'Hold to leave full screen' : '';
   }
-  function turnOn() { cover(); enterFs(); store(true); sync(); }
+  function turnOn() {
+    cover(); enterFs(); store(true); sync();
+    toast('Full screen. Hold the logo in the top-left corner for 2 seconds to leave.');
+  }
   function turnOff() { exitFs(); uncover(); store(false); sync(); }
 
   if (!frame && !fsOk) return { isOn };
   btn.hidden = false;
   btn.addEventListener('click', () => (isOn() ? turnOff() : turnOn()));
+  // Leaving full screen: hold the logo for 2 s (a plain tap does nothing, so a
+  // wall panel isn't knocked out of full screen by accident).
+  let holdTimer = null;
+  const release = () => { clearTimeout(holdTimer); holdTimer = null; logo.classList.remove('holding'); };
+  logo.addEventListener('pointerdown', (e) => {
+    if (!isOn()) return;
+    e.preventDefault();
+    logo.classList.add('holding');
+    holdTimer = setTimeout(() => { release(); turnOff(); }, 2000);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) logo.addEventListener(ev, release);
+  logo.addEventListener('contextmenu', (e) => { if (isOn()) e.preventDefault(); });
   const onChange = () => {
     // Directly opened: leaving browser full screen (Esc) means off. In HA the cover stays.
     if (!frame && !fsActive() && !document.hidden) store(false);

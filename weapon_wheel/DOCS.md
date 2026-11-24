@@ -116,6 +116,7 @@ start page, point the kiosk browser at `http://<your-home-assistant>:8123/e7dd1b
 
 The **full screen** button (top right) hides Home Assistant's title bar and sidebar, also in kiosk browsers such as
 Fully Kiosk Browser and in the Companion app. Each device remembers it, so a wall panel stays that way after reloads.
+In full screen the button is hidden; hold the logo in the top-left corner for 2 seconds to leave.
 To hide Android's status and navigation bars too, turn on Fully's own *Fullscreen Mode*.
 
 After 30 seconds without a touch, click or key press in the wheel menus, the dashboard returns to the house on its

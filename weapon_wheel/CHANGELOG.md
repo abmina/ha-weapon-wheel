@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.7
+- In full screen the **full screen button is hidden**, so nothing on a wall panel invites leaving it. To leave, **hold
+  the logo** in the top-left corner for 2 seconds (it fills with colour while you hold). A plain tap does nothing.
+
 ## 0.3.6
 - **Full screen works in kiosk browsers** such as Fully Kiosk Browser and in the Companion app: the button now
   always shows inside Home Assistant. The dashboard stretches itself over Home Assistant's title bar and sidebar, so
