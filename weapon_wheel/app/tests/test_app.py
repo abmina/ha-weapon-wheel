@@ -30,7 +30,7 @@ def registries():
 
 
 class BuildModelTests(unittest.TestCase):
-    def build(self, options=None, **override):
+    def build(self, options=None, integrations=None, **override):
         floors, areas, devices, entities, states = registries()
         args = {"floors": floors, "areas": areas, "devices": devices, "entities": entities, "states": states}
         args.update(override)
@@ -38,6 +38,7 @@ class BuildModelTests(unittest.TestCase):
             args["floors"], args["areas"], args["devices"], args["entities"], args["states"],
             {"light": {"turn_on": {"name": "Turn on", "fields": {}, "target": {}}}},
             options or {},
+            integrations,
         )
 
     def test_floors_areas_devices_entities(self):
@@ -47,6 +48,13 @@ class BuildModelTests(unittest.TestCase):
         self.assertEqual(m["areas"]["garden"]["floor_id"], "__unassigned__")
         self.assertIn("d_k_coffee", m["areas"]["kitchen"]["devices"])
         self.assertEqual(m["devices"]["d_k_coffee"]["entities"], ["switch.coffee_machine", "sensor.coffee_machine_energy"])
+
+    def test_devices_carry_their_integration(self):
+        m = self.build(integrations={"entry_shelly": ("shelly", "Shelly")})
+        node = m["devices"]["d_k_coffee"]
+        self.assertEqual((node["integration"], node["integration_name"]), ("shelly", "Shelly"))
+        self.assertIsNone(m["devices"]["d_k_fridge"]["integration"])  # entry not known
+        self.assertIsNone(m["devices"]["area:living_room"].get("integration"))
 
     def test_short_names_strip_device_name(self):
         m = self.build()
@@ -106,6 +114,11 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(data["connected"])
         self.assertTrue(data["demo"])
         self.assertIn("light.kitchen_spots", data["states"])
+
+    async def test_integrations_from_home_assistant(self):
+        data = await (await self.client.get("/api/model")).json()
+        dev = data["model"]["devices"]["d_k_lights"]
+        self.assertEqual((dev["integration"], dev["integration_name"]), ("shelly", "Shelly"))
 
     async def test_home_name_from_home_assistant(self):
         data = await (await self.client.get("/api/model")).json()

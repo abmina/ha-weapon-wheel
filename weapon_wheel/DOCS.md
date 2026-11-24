@@ -9,7 +9,9 @@ The app reads Home Assistant's registries, and picks up any change to them autom
 - **Floors** become the storeys of the house, ordered by their *level*. Negative levels are drawn below the ground line.
 - **Areas** become the rooms on their floor. Areas without a floor go in an extra *Unassigned level* storey. If you
   have no floors at all, every room goes in one storey called *Home*.
-- **Devices** in an area make up that room's device wheel. A device whose entities are spread over several areas
+- **Devices** in an area make up that room's device wheel. Two or more devices from the same integration are grouped
+  into one leaf named after the integration; opening it shows a wheel with just those devices. (A room whose devices all
+  come from one integration is not grouped.) A device whose entities are spread over several areas
   appears in each of them, with just the entities for that room. Entities assigned to an area directly, without a device
   (scenes, helpers…), are grouped as *"<Room> extras"*.
 - **Entities** of a device are split in two: **controls** (lights, switches, covers, climate, media players, locks,
@@ -21,7 +23,8 @@ Set areas and floors under *Settings → Areas, labels & zones*.
 
 ## Using it
 
-1. **House** - hover a room for a summary and click it to open it. A room's pin shows how many devices it has. Rooms
+1. **House** - hover a room for a summary and click it to open it. A room's pin shows how many leaves its wheel has
+   (devices and integration groups). Rooms
    with lights on glow.
 2. **Device wheel** - move the mouse (or your finger) in any direction to aim at a device, and click to open it. Click the
    centre, or press Esc, to go back.
@@ -55,7 +58,8 @@ Click **Customize** (top right) to:
 - tick **Outdoor** on a level to show all its rooms in a garden outside the house (for example a *Garden* or
   *Outside* floor, or the *Unassigned level*), or move a single room to the built-in **Outdoor** level;
 - hide rooms that have no devices;
-- skip the entity wheel for devices that have only one entity.
+- skip the entity wheel for devices that have only one entity;
+- turn grouping by integration on or off.
 
 Right-click (or long-press) a segment on a wheel to hide it quickly. A toast lets you undo it.
 

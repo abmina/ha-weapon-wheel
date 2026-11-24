@@ -22,7 +22,8 @@ you're at the controls. New devices show up on their own as soon as you assign t
 - **House map** - every floor stacked under a roof, basements under the ground line. Each room is a button
   with a map pin showing how many devices it has. Rooms glow when lights are on, and hovering shows the
   temperature, lights on and motion.
-- **Device wheel** - click a room: the house zooms away and the room's devices fan open as a weapon wheel.
+- **Device wheel** - click a room: the house zooms away and the room's devices fan open as a weapon wheel. Devices
+  of the same integration (all your Shelly or Hue devices in that room, say) share one leaf that opens into its own wheel.
   Point anywhere around it to aim, like a game controller.
 - **Entity wheel** - pick a device: the wheel folds shut and opens again with the things you can control on it.
   Its sensors, settings and diagnostics are listed in the sidebar at the same time.

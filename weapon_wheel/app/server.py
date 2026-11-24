@@ -192,8 +192,19 @@ def build_model(
     states: dict[str, dict],
     services: dict[str, dict],
     options: dict,
+    integrations: dict[str, tuple[str, str]] | None = None,
 ) -> dict:
-    """Turn the raw registries into the floor > area > device > entity tree."""
+    """Turn the raw registries into the floor > area > device > entity tree.
+
+    `integrations` maps a config entry id to (integration domain, integration name); it is
+    used to group a room's devices by the integration that created them.
+    """
+    integrations = integrations or {}
+
+    def integration_of(dev: dict) -> tuple[str | None, str | None]:
+        entry = dev.get("primary_config_entry") or next(iter(dev.get("config_entries") or []), None)
+        return integrations.get(entry, (None, None))
+
     show_hidden = options.get("show_hidden_entities", False)
 
     dev_by_id = {d["id"]: d for d in devices}
@@ -230,6 +241,8 @@ def build_model(
                 "name": dev.get("name_by_user") or dev.get("name") or "Unnamed device",
                 "manufacturer": dev.get("manufacturer"),
                 "model": dev.get("model"),
+                "integration": integration_of(dev)[0],
+                "integration_name": integration_of(dev)[1],
                 "area_id": area_id,
                 "virtual": False,
                 "entities": [],
@@ -369,9 +382,10 @@ class Hub:
                 config = await self.client.call("get_config")
             except HAError:
                 config = {}
+            integrations = await self._integrations()
             self.states = {s["entity_id"]: s for s in states}
             self.model = build_model(
-                floors, areas, devices, entities, self.states, services, self.options
+                floors, areas, devices, entities, self.states, services, self.options, integrations
             )
             # Default name of the house: the home name from Settings -> System -> General
             self.model["home_name"] = (config or {}).get("location_name") or None
@@ -383,6 +397,23 @@ class Hub:
                 len(self.model["entities"]),
             )
         await self.broadcast({"type": "model"})
+
+    async def _integrations(self) -> dict[str, tuple[str, str]]:
+        """Config entry id -> (integration domain, integration display name)."""
+        try:
+            entries = await self.client.call("config_entries/get")
+        except HAError:
+            return {}
+        try:
+            names = {m["domain"]: m.get("name") for m in await self.client.call("manifest/list") or []}
+        except HAError:
+            names = {}
+        out = {}
+        for entry in entries or []:
+            domain = entry.get("domain")
+            if entry.get("entry_id") and domain:
+                out[entry["entry_id"]] = (domain, names.get(domain) or domain.replace("_", " ").title())
+        return out
 
     def set_connected(self, value: bool) -> None:
         if self.connected != value:

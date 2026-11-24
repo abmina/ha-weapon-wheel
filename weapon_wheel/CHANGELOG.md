@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.6
+- Devices of the same integration in a room are grouped into one leaf of the room's wheel (for example **Shelly ·
+  2 devices**). Opening it shows a wheel with just those devices; from there everything works as before. Rooms where
+  every device comes from the same integration are not grouped. Turn it off with *Customize → Group devices of the same
+  integration*.
+- The number on a room's pin is now the number of leaves on its wheel (devices and integration groups), not a count of
+  everything in the room.
+
 ## 0.2.5
 - The entity wheel only shows **controls** (lights, switches, covers, climate, media, locks, scenes, buttons…).
 - Selecting a device opens its panel in the sidebar with its **Sensors**, **Settings** (config entities) and

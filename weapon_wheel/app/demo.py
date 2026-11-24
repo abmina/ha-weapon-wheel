@@ -221,6 +221,18 @@ def _png(width: int, height: int, t: float) -> bytes:
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(b"".join(rows))) + chunk(b"IEND", b"")
 
 
+# Which (fake) integration each manufacturer's devices come from.
+DEMO_INTEGRATIONS = {
+    "Philips": ("hue", "Philips Hue"), "IKEA": ("zha", "Zigbee Home Automation"),
+    "Aqara": ("zha", "Zigbee Home Automation"), "Shelly": ("shelly", "Shelly"), "Sonos": ("sonos", "Sonos"),
+    "LG": ("webostv", "LG webOS TV"), "ecobee": ("ecobee", "ecobee"), "Somfy": ("somfy_mylink", "Somfy MyLink"),
+    "Bosch": ("home_connect", "Home Connect"), "Nuki": ("nuki", "Nuki"), "Meross": ("meross", "Meross"),
+    "Wallbox": ("wallbox", "Wallbox"), "Hunter": ("hunter", "Hunter"), "Govee": ("govee_light_local", "Govee lights local"),
+    "Custom": ("mqtt", "MQTT"), "Miele": ("miele", "Miele"), "Roborock": ("roborock", "Roborock"),
+    "Rachio": ("rachio", "Rachio"), "Ring": ("ring", "Ring"), "Reolink": ("reolink", "Reolink"),
+}
+
+
 class DemoClient:
     demo = True
 
@@ -259,9 +271,11 @@ class DemoClient:
         self.entities = []
         self.states: dict[str, dict] = {}
         for did, name, area, manu, model, ents in DEVICES:
+            integ = DEMO_INTEGRATIONS.get(manu, ("demo", "Demo"))[0]
             self.devices.append({
                 "id": did, "name": name, "name_by_user": None, "area_id": area,
                 "manufacturer": manu, "model": model, "disabled_by": None,
+                "config_entries": [f"entry_{integ}"], "primary_config_entry": f"entry_{integ}",
             })
             slug = name.lower().replace(" ", "_").replace("-", "_")
             for eid, state, attrs, extra in ents:
@@ -340,6 +354,10 @@ class DemoClient:
             return copy.deepcopy(self.entities)
         if msg_type == "get_states":
             return copy.deepcopy(list(self.states.values()))
+        if msg_type == "config_entries/get":
+            return [{"entry_id": f"entry_{d}", "domain": d, "title": n} for d, n in set(DEMO_INTEGRATIONS.values())]
+        if msg_type == "manifest/list":
+            return [{"domain": d, "name": n} for d, n in set(DEMO_INTEGRATIONS.values())]
         if msg_type == "get_config":
             return {"location_name": "Demo House"}
         if msg_type == "get_services":

@@ -543,7 +543,7 @@ function roomStats(aid) {
       if (d === 'binary_sensor' && ['motion', 'occupancy', 'presence'].includes(st.attributes.device_class) && st.state === 'on') motion = true;
     }
   }
-  return { devices: nodes.length, lights, active, temp, motion };
+  return { devices: nodes.length, leaves: roomItems(aid).length, lights, active, temp, motion };
 }
 
 function paintHouse() {
@@ -554,7 +554,7 @@ function paintHouse() {
     r.el.classList.toggle('lit', st.lights > 0);
     r.el.classList.toggle('empty', empty);
     r.pin.classList.toggle('empty', empty);
-    r.pin.querySelector('.p-count').textContent = st.devices;
+    r.pin.querySelector('.p-count').textContent = st.leaves; // what the room's wheel will show
     r.label.classList.toggle('lit', st.lights > 0);
     r.label.classList.toggle('empty', empty);
     const chips = [];
@@ -859,14 +859,61 @@ $('#page-next').addEventListener('click', () => wheel.turnPage(1));
 // ===================================================================
 // Navigation
 // ===================================================================
-function deviceItems(aid) {
-  return visibleNodes(aid).map((nid) => ({
+const GROUP = 'grp:';
+const isGroupId = (id) => typeof id === 'string' && id.startsWith(GROUP);
+
+/** A room's devices, with 2+ devices of the same integration folded into one group. */
+function roomGroups(aid) {
+  const nodes = visibleNodes(aid);
+  if (setting('noGrouping')) return { groups: {}, loose: nodes };
+  const byIntegration = {};
+  for (const nid of nodes) {
+    const d = M().devices[nid];
+    if (!d.virtual && d.integration) (byIntegration[d.integration] ||= []).push(nid);
+  }
+  const groups = Object.fromEntries(Object.entries(byIntegration).filter(([, ids]) => ids.length >= 2));
+  const grouped = new Set(Object.values(groups).flat());
+  // A room that would become a single group gains nothing from grouping - show its devices directly.
+  if (Object.keys(groups).length === 1 && grouped.size === nodes.length) return { groups: {}, loose: nodes };
+  return { groups, loose: nodes.filter((n) => !grouped.has(n)) };
+}
+function integrationName(integ) {
+  const d = Object.values(M().devices).find((x) => x.integration === integ);
+  return d?.integration_name || pretty(integ);
+}
+
+function deviceItem(nid) {
+  return {
     id: nid,
     label: devName(nid),
     icon: deviceIcon(nid),
     sub: deviceSub(nid),
     active: mainEntities(nid).some(isActive),
-  }));
+    virtual: !!M().devices[nid].virtual,
+  };
+}
+/** Leaves of a room's wheel: integration groups and the devices that are not in a group. */
+function roomItems(aid) {
+  const { groups, loose } = roomGroups(aid);
+  const items = loose.map(deviceItem);
+  for (const [integ, ids] of Object.entries(groups)) {
+    const on = ids.filter((n) => mainEntities(n).some(isActive)).length;
+    items.push({
+      id: GROUP + integ,
+      label: integrationName(integ),
+      icon: 'mdi:puzzle-outline',
+      sub: `${ids.length} devices${on ? ` · ${on} on` : ''}`,
+      active: on > 0,
+    });
+  }
+  return items.sort((a, b) => (a.virtual === b.virtual ? a.label.localeCompare(b.label) : a.virtual ? 1 : -1));
+}
+function groupItems(aid, integ) {
+  return (roomGroups(aid).groups[integ] || []).map(deviceItem);
+}
+/** Items of the device-level wheel currently on screen (a room, or one integration group in it). */
+function currentDeviceItems() {
+  return S.nav.group ? groupItems(S.nav.areaId, S.nav.group) : roomItems(S.nav.areaId);
 }
 function entityItems(nid) {
   return controlEntities(nid).map((eid) => ({
@@ -875,11 +922,18 @@ function entityItems(nid) {
 }
 function deviceWheelOpts(aid, selectedId = null) {
   const st = roomStats(aid);
+  const g = S.nav.group;
+  const center = g
+    ? { icon: 'mdi:puzzle-outline', title: integrationName(g), sub: `${groupItems(aid, g).length} devices in ${areaName(aid)}` }
+    : { icon: roomIcon(aid), title: areaName(aid), sub: `${st.devices} device${st.devices === 1 ? '' : 's'}${st.temp ? ` · ${st.temp}` : ''}` };
   return {
-    center: { icon: roomIcon(aid), title: areaName(aid), sub: `${st.devices} device${st.devices === 1 ? '' : 's'}${st.temp ? ` · ${st.temp}` : ''}` },
+    center,
     selectedId,
-    onSelect: (it) => guard(() => enterDevice(it.id)),
-    onHide: (it) => hideItem('devices', devKey(it.id), devName(it.id)),
+    onSelect: (it) => guard(() => (isGroupId(it.id) ? enterGroup(it.id.slice(GROUP.length)) : enterDevice(it.id))),
+    onHide: (it) => {
+      if (isGroupId(it.id)) { toast('Open the group to hide its devices'); return; }
+      hideItem('devices', devKey(it.id), devName(it.id));
+    },
   };
 }
 function entityWheelOpts(nid) {
@@ -895,7 +949,7 @@ function entityWheelOpts(nid) {
 async function enterArea(aid, room) {
   await guard(async () => {
     hideTooltip();
-    S.nav = { level: 'devices', areaId: aid, nodeId: null, entityId: null };
+    S.nav = { level: 'devices', areaId: aid, nodeId: null, entityId: null, group: null };
     if (room) {
       const g = S.houseGeom;
       const frame = $('#house-frame').getBoundingClientRect();
@@ -908,7 +962,7 @@ async function enterArea(aid, room) {
     renderCrumbs();
     await sleep(280);
     wheel.t = 0;
-    wheel.set(deviceItems(aid), deviceWheelOpts(aid));
+    wheel.set(roomItems(aid), deviceWheelOpts(aid));
     wheelView.classList.remove('hidden');
     await wheel.open();
   });
@@ -959,9 +1013,33 @@ async function leaveDevice() {
   await wheel.close();
   S.nav.level = 'devices';
   S.nav.nodeId = null;
-  const items = deviceItems(S.nav.areaId);
+  const items = currentDeviceItems();
   const idx = items.findIndex((it) => it.id === nid);
   wheel.set(items, { ...deviceWheelOpts(S.nav.areaId), page: idx >= 0 ? Math.floor(idx / wheel.per) : 0 });
+  renderCrumbs();
+  await wheel.open();
+}
+
+/** Open an integration group: a wheel with just that integration's devices in this room. */
+async function enterGroup(integ) {
+  closeSidebar();
+  await wheel.close();
+  S.nav.group = integ;
+  wheel.set(groupItems(S.nav.areaId, integ), deviceWheelOpts(S.nav.areaId));
+  renderCrumbs();
+  await wheel.open();
+}
+/** Back to the room wheel (from a group, a device or an entity). */
+async function goRoom() {
+  const n = S.nav;
+  if (n.level === 'devices' && !n.group) { closeSidebar(); return; }
+  const from = n.group ? GROUP + n.group : n.nodeId;
+  closeSidebar();
+  await wheel.close();
+  Object.assign(n, { level: 'devices', group: null, nodeId: null, entityId: null });
+  const items = roomItems(n.areaId);
+  const idx = items.findIndex((it) => it.id === from);
+  wheel.set(items, { ...deviceWheelOpts(n.areaId), page: idx >= 0 ? Math.floor(idx / wheel.per) : 0 });
   renderCrumbs();
   await wheel.open();
 }
@@ -969,7 +1047,7 @@ async function leaveDevice() {
 async function goHouse() {
   closeSidebar();
   if (S.nav.level !== 'house') await wheel.close();
-  S.nav = { level: 'house', areaId: null, nodeId: null, entityId: null };
+  S.nav = { level: 'house', areaId: null, nodeId: null, entityId: null, group: null };
   wheelView.classList.add('hidden');
   houseView.classList.remove('leaving');
   buildHouse();
@@ -979,6 +1057,7 @@ async function goHouse() {
 function back() {
   guard(async () => {
     if (S.nav.level === 'entities') await leaveDevice();
+    else if (S.nav.level === 'devices' && S.nav.group) await goRoom();
     else if (S.nav.level === 'devices') await goHouse();
   });
 }
@@ -1012,7 +1091,9 @@ function renderCrumbs() {
     const fid = areaFloor(n.areaId);
     const f = allFloors().find((x) => x.id === fid);
     if (f && (isOutdoorFloor(f) || M().floors.length > 1)) parts.push([floorName(f), () => guard(goHouse)]);
-    parts.push([areaName(n.areaId), n.level === 'entities' ? () => guard(leaveDevice) : null]);
+    const inside = n.level === 'entities' || n.group || n.panel;
+    parts.push([areaName(n.areaId), inside ? () => guard(goRoom) : null]);
+    if (n.group) parts.push([integrationName(n.group), n.level === 'entities' ? () => guard(leaveDevice) : (n.panel ? closeSidebar : null)]);
   }
   const dev = n.nodeId || n.panel;
   if (dev && M().devices[dev]) parts.push([devName(dev), n.entityId ? (n.panel ? backToPanel : closeSidebar) : null]);
@@ -1054,6 +1135,7 @@ function rerenderAll() {
     goHouse();
     return;
   }
+  if (n.group && !roomGroups(n.areaId).groups[n.group]) n.group = null; // group dissolved (e.g. a device hidden)
   if (n.level === 'entities' && (!M().devices[n.nodeId] || !visibleNodes(n.areaId).includes(n.nodeId) || !controlEntities(n.nodeId).length)) {
     leaveDevice();
     return;
@@ -1063,7 +1145,7 @@ function rerenderAll() {
   }
   if (n.panel && (!M().devices[n.panel] || isHidden('devices', devKey(n.panel)))) closeSidebar();
   if (n.level === 'house') buildHouse();
-  else if (n.level === 'devices') { wheel.opts = deviceWheelOpts(n.areaId, wheel.opts.selectedId); wheel.update(deviceItems(n.areaId)); }
+  else if (n.level === 'devices') { wheel.opts = deviceWheelOpts(n.areaId, wheel.opts.selectedId); wheel.update(currentDeviceItems()); }
   else { wheel.opts = entityWheelOpts(n.nodeId); wheel.update(entityItems(n.nodeId)); }
   if (n.entityId || n.panel) renderSidebar();
   renderCrumbs();
@@ -1656,12 +1738,17 @@ function settingsBlock() {
   return h('div', { class: 'settings' },
     h('label', { class: 'house-name' }, h('span', {}, 'House name'), name),
     settingBox('hideEmptyRooms', 'Hide rooms without devices'),
-    settingBox('skipSingleEntity', 'Skip entity wheel for single-entity devices'));
+    settingBox('skipSingleEntity', 'Skip entity wheel for single-entity devices'),
+    settingBox('noGrouping', 'Group devices of the same integration', true));
 }
-function settingBox(key, label) {
+/** Checkbox bound to a layout setting; `invert` shows a setting stored as "off" (e.g. noGrouping) as a positive option. */
+function settingBox(key, label, invert = false) {
   const cb = h('input', { type: 'checkbox' });
-  cb.checked = !!W.settings[key];
-  cb.addEventListener('change', () => { W.settings[key] = cb.checked; if (!cb.checked) delete W.settings[key]; });
+  cb.checked = invert ? !W.settings[key] : !!W.settings[key];
+  cb.addEventListener('change', () => {
+    const value = invert ? !cb.checked : cb.checked;
+    if (value) W.settings[key] = true; else delete W.settings[key];
+  });
   return h('label', {}, cb, label);
 }
 function closeEditor() { $('#editor').hidden = true; W = null; }
@@ -1841,7 +1928,7 @@ function onStates(batch) {
     const n = S.nav;
     if (n.level === 'house') paintHouse();
     else if (wheel.t === 1 && !busy.v) {
-      if (n.level === 'devices') wheel.update(deviceItems(n.areaId));
+      if (n.level === 'devices') wheel.update(currentDeviceItems());
       else if (n.level === 'entities') wheel.update(entityItems(n.nodeId));
     }
   });
