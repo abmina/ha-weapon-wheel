@@ -47,4 +47,4 @@ jobs:
           docker build --platform "$platform" --build-arg BUILD_FROM="$base" -t weapon-wheel:test weapon_wheel
           docker run --rm --platform "$platform" --entrypoint python3 weapon-wheel:test \
             -c "import aiohttp, sys; sys.path.insert(0, '/app'); import server; print('ok', aiohttp.__version__)"
-          docker run --rm --platform "$platform" --entrypoint ls weapon-wheel:test /app/static/vendor/mdi/fonts
+          docker run --rm --platform "$platform" --entrypoint ls weapon-wheel:test /app/static/vendor/mdi/fonts /app/static/vendor/hls

@@ -951,6 +951,7 @@ function openEntity(eid) {
   renderCrumbs();
 }
 function closeSidebar() {
+  stopCamera();
   if (!document.body.classList.contains('sidebar-open')) return;
   document.body.classList.remove('sidebar-open');
   $('#sidebar').setAttribute('aria-hidden', 'true');
@@ -1244,10 +1245,7 @@ function controls(eid) {
       if (v === 'on') out.push(sec(null, act('Install update', 'mdi:download', call('install'), 'toggle-big primary')));
       break;
     case 'camera':
-      if (a.entity_picture) {
-        const sep = a.entity_picture.includes('?') ? '&' : '?';
-        out.push(h('img', { class: 'cam', src: `${a.entity_picture}${sep}_=${Date.now()}`, alt: 'Camera snapshot' }));
-      }
+      out.push(...cameraBlock(eid));
       break;
     case 'timer':
       out.push(sec(null, row(act('Start', 'mdi:play', call('start')), act('Pause', 'mdi:pause', call('pause')), act('Cancel', 'mdi:stop', call('cancel')))));
@@ -1258,6 +1256,124 @@ function controls(eid) {
     default: break;
   }
   return out;
+}
+
+// ---------- cameras: snapshot or live stream ----------
+const cam = { session: 0, stop: null, live: {} };
+const STREAM_FEATURE = 2; // CameraEntityFeature.STREAM
+
+function stopCamera() {
+  cam.session++;
+  if (cam.stop) { try { cam.stop(); } catch { /* already gone */ } }
+  cam.stop = null;
+}
+const bust = (u) => `${u}${u.includes('?') ? '&' : '?'}_=${Date.now()}`;
+
+let hlsLoading = null;
+/** Loads the bundled hls.js once; resolves to the Hls class or null. */
+function loadHls() {
+  if (window.Hls) return Promise.resolve(window.Hls);
+  hlsLoading ||= new Promise((resolve) => {
+    const tag = h('script', { src: 'vendor/hls/hls.min.js' });
+    tag.onload = () => resolve(window.Hls || null);
+    tag.onerror = () => resolve(null);
+    document.head.append(tag);
+  });
+  return hlsLoading;
+}
+
+function cameraBlock(eid) {
+  const a = S.states[eid].attributes || {};
+  const live = !!cam.live[eid];
+  const setLive = (on) => { cam.live[eid] = on; renderSidebar(); };
+  const box = h('div', { class: 'cam-box' });
+  const badge = h('span', { class: 'cam-badge', hidden: true });
+  box.append(badge);
+  const switcher = h('div', { class: 'seg' },
+    h('button', { class: live ? '' : 'active', onclick: () => live && setLive(false) }, ico('mdi:camera-outline'), 'Snapshot'),
+    h('button', { class: live ? 'active' : '', onclick: () => !live && setLive(true) }, ico('mdi:record-circle-outline'), 'Live'));
+  if (!a.entity_picture) return [sec(null, switcher), h('p', { class: 'muted' }, 'This camera has no picture right now.')];
+  stopCamera();
+  const session = cam.session;
+  if (live) startLive(eid, box, badge, session);
+  else startSnapshot(eid, box);
+  const full = act('Full screen', 'mdi:fullscreen', () => {
+    const media = box.querySelector('video, img');
+    (media?.requestFullscreen || media?.webkitEnterFullscreen)?.call(media);
+  }, 'small');
+  return [sec(null, switcher), box, row(full)];
+}
+
+function startSnapshot(eid, box) {
+  const img = h('img', { class: 'cam', alt: 'Camera snapshot' });
+  const load = () => {
+    const pic = S.states[eid]?.attributes?.entity_picture; // the access token in this URL rotates
+    if (pic) img.src = bust(pic);
+  };
+  load();
+  const timer = setInterval(load, 10000);
+  box.prepend(img);
+  cam.stop = () => clearInterval(timer);
+}
+
+function startMjpeg(eid, box, badge) {
+  const pic = S.states[eid]?.attributes?.entity_picture || '';
+  const img = h('img', { class: 'cam', alt: 'Live camera' });
+  img.src = bust(pic.replace('/camera_proxy/', '/camera_proxy_stream/'));
+  box.prepend(img);
+  badge.hidden = false;
+  badge.textContent = 'LIVE · MJPEG';
+  // Dropping the src closes the long-running stream connection.
+  cam.stop = () => { img.removeAttribute('src'); img.src = ''; };
+}
+
+async function startLive(eid, box, badge, session) {
+  const a = S.states[eid].attributes || {};
+  const current = () => session === cam.session;
+  if (a.supported_features & STREAM_FEATURE) {
+    try {
+      const { url } = await api(`api/camera_stream?entity_id=${encodeURIComponent(eid)}`);
+      if (!current()) return;
+      const video = h('video', { class: 'cam', autoplay: true, playsinline: true, controls: true });
+      video.muted = true; // browsers only autoplay muted video
+      let hls = null;
+      const stopHls = () => { hls?.destroy(); hls = null; video.removeAttribute('src'); video.load(); };
+      let fellBack = false;
+      const fallback = (why) => {
+        if (fellBack || !current()) return;
+        fellBack = true;
+        console.info(`HLS stream for ${eid} failed (${why}), using MJPEG`);
+        clearTimeout(watchdog);
+        stopHls();
+        video.remove();
+        startMjpeg(eid, box, badge);
+      };
+      // No picture within 12 s (stream integration slow or broken) -> MJPEG.
+      const watchdog = setTimeout(() => fallback('timeout'), 12000);
+      video.addEventListener('playing', () => clearTimeout(watchdog), { once: true });
+      video.addEventListener('error', () => fallback('playback error'));
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url; // Safari, iOS and recent Chrome play HLS natively
+      } else {
+        const Hls = await loadHls();
+        if (!current()) { clearTimeout(watchdog); return; }
+        if (!Hls || !Hls.isSupported()) { clearTimeout(watchdog); throw new Error('HLS not supported in this browser'); }
+        hls = new Hls({ liveSyncDurationCount: 2 });
+        hls.on(Hls.Events.ERROR, (_e, data) => { if (data.fatal) fallback(data.details); });
+        hls.loadSource(url);
+        hls.attachMedia(video);
+      }
+      box.prepend(video);
+      badge.hidden = false;
+      badge.textContent = 'LIVE · HLS';
+      cam.stop = () => { clearTimeout(watchdog); stopHls(); };
+      return;
+    } catch (err) {
+      if (!current()) return;
+      console.info(`HLS unavailable for ${eid}, using MJPEG:`, err.message);
+    }
+  }
+  if (current()) startMjpeg(eid, box, badge);
 }
 
 function stateBlock(eid) {
@@ -1361,6 +1477,7 @@ function attrsBlock(eid) {
 }
 
 function renderSidebar() {
+  stopCamera();
   const eid = S.nav.entityId;
   const sb = $('#sidebar');
   if (!eid || !S.states[eid] || !M().entities[eid]) { closeSidebar(); return; }
@@ -1624,7 +1741,8 @@ function onStates(batch) {
     if (st) S.states[eid] = st; else delete S.states[eid];
     if (eid === S.nav.entityId) touchesSidebar = true;
   }
-  if (touchesSidebar && !S.interacting && !document.activeElement?.closest?.('#sidebar input')) renderSidebar();
+  if (touchesSidebar && domainOf(S.nav.entityId) !== 'camera'
+      && !S.interacting && !document.activeElement?.closest?.('#sidebar input')) renderSidebar();
   if (paintQueued) return;
   paintQueued = true;
   requestAnimationFrame(() => {

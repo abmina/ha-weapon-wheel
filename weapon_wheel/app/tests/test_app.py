@@ -113,6 +113,14 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         r = await self.client.put("/api/layout", json={"settings": {"houseName": "Villa Sol"}})
         self.assertEqual((await r.json())["settings"], {"houseName": "Villa Sol"})
 
+    async def test_camera_stream_endpoint(self):
+        r = await self.client.get("/api/camera_stream?entity_id=light.kitchen_spots")
+        self.assertEqual(r.status, 400)
+        r = await self.client.get("/api/camera_stream?entity_id=camera.porch_camera")
+        self.assertEqual(r.status, 502)  # the demo has no stream integration -> browser falls back to MJPEG
+        r = await self.client.get("/api/camera_proxy/camera.porch_camera")
+        self.assertEqual(r.content_type, "image/png")
+
     async def test_index_served(self):
         r = await self.client.get("/")
         self.assertEqual(r.status, 200)
@@ -155,6 +163,32 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(len(data["points"]), 5)
         r = await self.client.get("/api/history?entity_id=../../etc")
         self.assertEqual(r.status, 400)
+
+
+class CameraStreamTests(unittest.IsolatedAsyncioTestCase):
+    async def test_returns_hls_url_from_home_assistant(self):
+        os.environ["DEMO"] = "1"
+        try:
+            app = server.create_app()
+            client = TestClient(TestServer(app))
+            await client.start_server()
+            hub = app[server.HUB]
+            real_call = hub.client.call
+            calls = []
+
+            async def fake_call(msg_type, **kw):
+                if msg_type == "camera/stream":
+                    calls.append(kw)
+                    return {"url": "/api/hls/abc/master_playlist.m3u8"}
+                return await real_call(msg_type, **kw)
+
+            hub.client.call = fake_call
+            r = await client.get("/api/camera_stream?entity_id=camera.porch_camera")
+            self.assertEqual(await r.json(), {"url": "/api/hls/abc/master_playlist.m3u8"})
+            self.assertEqual(calls, [{"entity_id": "camera.porch_camera", "format": "hls"}])
+            await client.close()
+        finally:
+            os.environ.pop("DEMO", None)
 
 
 class MockHomeAssistant:

@@ -517,6 +517,22 @@ async def handle_call(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def handle_camera_stream(request: web.Request) -> web.Response:
+    """Ask Home Assistant for an HLS stream URL for a camera (needs the stream integration)."""
+    hub: Hub = request.app[HUB]
+    entity_id = request.query.get("entity_id", "")
+    if not ENTITY_RE.match(entity_id) or not entity_id.startswith("camera."):
+        return json_error(400, "Invalid camera entity_id")
+    try:
+        result = await hub.client.call("camera/stream", entity_id=entity_id, format="hls")
+    except (HAError, asyncio.TimeoutError) as err:
+        return json_error(502, str(err) or "Stream not available")
+    url = (result or {}).get("url")
+    if not url:
+        return json_error(502, "Home Assistant returned no stream URL")
+    return web.json_response({"url": url})
+
+
 async def handle_history(request: web.Request) -> web.Response:
     hub: Hub = request.app[HUB]
     entity_id = request.query.get("entity_id", "")
@@ -613,6 +629,9 @@ def create_app() -> web.Application:
     app.router.add_put("/api/layout", handle_layout_put)
     app.router.add_post("/api/call", handle_call)
     app.router.add_get("/api/history", handle_history)
+    app.router.add_get("/api/camera_stream", handle_camera_stream)
+    if getattr(hub.client, "demo", False):
+        hub.client.add_routes(app)
     app.router.add_get("/api/ws", handle_ws)
     app.router.add_static("/", STATIC_DIR, show_index=False)
     app.on_startup.append(on_startup)

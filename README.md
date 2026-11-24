@@ -35,7 +35,8 @@ you're at the controls. New devices show up on their own as soon as you assign t
   | Media players | play/pause, next/previous, volume, mute, source, sound mode, artwork |
   | Locks / alarm panels | lock, unlock, open; arm home/away/night, disarm, with code |
   | Fans / vacuums / mowers | speed, oscillate, presets, direction; start, pause, dock, locate |
-  | Switches, scenes, scripts, buttons, numbers, selects, text, timers, counters, updates, cameras | … |
+  | Cameras | snapshot, or live video (HLS stream, MJPEG fallback), full screen |
+  | Switches, scenes, scripts, buttons, numbers, selects, text, timers, counters, updates | … |
 
   Plus a **24-hour history** chart, **more actions** from the entity's services, and all its **attributes**.
 - **Live** - states update instantly. Changes to areas, devices or floors in Home Assistant appear without a restart.

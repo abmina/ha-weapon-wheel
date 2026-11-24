@@ -28,6 +28,17 @@ Set areas and floors under *Settings → Areas, labels & zones*.
 
 With more than 10 devices in a room, the wheel gets pages. Use the arrows next to it, the scroll wheel or PageUp/PageDown.
 
+## Cameras
+
+A camera's sidebar has a **Snapshot / Live** switch:
+
+- **Snapshot** shows the latest picture and refreshes it every 10 seconds.
+- **Live** plays the camera as video. Cameras that support Home Assistant's *stream* integration (included in the default
+  configuration) play as an HLS stream (marked *LIVE · HLS*). Other cameras, or an HLS stream that fails or doesn't start
+  within 12 seconds, use an MJPEG stream instead (*LIVE · MJPEG*).
+
+The stream stops as soon as you close the sidebar or pick another entity.
+
 ## Customize
 
 Click **Customize** (top right) to:

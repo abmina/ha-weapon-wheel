@@ -5,6 +5,10 @@
   house, standing on the grass next to it. Single rooms can be moved outside with the built-in **Outdoor** level in a
   room's level list. Each outdoor level gets its own garden; on phones they stack next to the house.
 - Rooms without a level are now grouped as **Unassigned level** (was "Unassigned rooms").
+- Cameras: a **Snapshot / Live** switch in the sidebar. Live uses Home Assistant's HLS stream when the camera supports
+  it (smooth video; hls.js is bundled, no internet needed) and falls back to MJPEG for every other camera, or when the
+  HLS stream fails or doesn't start within 12 seconds. Snapshots refresh every 10 seconds, there is a full-screen
+  button, and the stream stops when you close the sidebar.
 
 ## 0.2.2
 - Name your house: *Customize → House name*. The name shows on the roof of the house, as the first step of the

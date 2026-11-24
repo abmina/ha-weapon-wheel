@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import struct
+import zlib
 import random
 import time
 from datetime import datetime, timedelta, timezone
@@ -154,6 +156,12 @@ DEVICES: list[tuple] = [
         ("valve.sprinkler_zone_1", "closed", {}, {}),
         ("switch.sprinkler_zone_2", "off", {}, {}),
     ]),
+    ("d_gd_cam", "Porch Camera", "garden", "Reolink", "RLC-510A", [
+        ("camera.porch_camera", "idle", {
+            "entity_picture": "/api/camera_proxy/camera.porch_camera?token=demo",
+            "supported_features": 2, "brand": "Reolink", "frontend_stream_type": "hls",
+        }, {}),
+    ]),
     ("d_alarm", "Alarm Panel", "hallway", "Ring", "Alarm Pro", [
         ("alarm_control_panel.home", "armed_home", {"code_format": None, "code_arm_required": False}, {}),
     ]),
@@ -189,8 +197,54 @@ REQUIRED = {"set_percentage", "set_preset_mode", "set_temperature", "set_hvac_mo
             "set_fan_speed", "oscillate"}
 
 
+def _png(width: int, height: int, t: float) -> bytes:
+    """A tiny moving test picture (sky, ground and a sweeping bar), as PNG."""
+    bar = int((t * 60) % width)
+    rows = []
+    for y in range(height):
+        row = bytearray([0])
+        for x in range(width):
+            if abs(x - bar) < 6:
+                row += bytes((255, 255, 255))
+            elif y > height * 0.7:
+                row += bytes((46, 157, 87))
+            else:
+                k = y / height
+                row += bytes((int(40 + 60 * k), int(110 + 60 * k), int(200 + 40 * k)))
+        rows.append(bytes(row))
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(b"".join(rows))) + chunk(b"IEND", b"")
+
+
 class DemoClient:
     demo = True
+
+    def add_routes(self, app) -> None:
+        """Fake versions of Home Assistant's camera endpoints, so the camera UI can be tried in the demo."""
+        from aiohttp import web
+
+        async def snapshot(request):
+            return web.Response(body=_png(320, 180, time.time()), content_type="image/png")
+
+        async def stream(request):
+            resp = web.StreamResponse(headers={"Content-Type": "multipart/x-mixed-replace; boundary=frame"})
+            await resp.prepare(request)
+            try:
+                while True:
+                    frame = _png(320, 180, time.time())
+                    await resp.write(b"--frame\r\nContent-Type: image/png\r\nContent-Length: "
+                                     + str(len(frame)).encode() + b"\r\n\r\n" + frame + b"\r\n")
+                    await asyncio.sleep(0.2)
+            except (ConnectionResetError, asyncio.CancelledError):
+                pass
+            return resp
+
+        app.router.add_get("/api/camera_proxy/{entity_id}", snapshot)
+        app.router.add_get("/api/camera_proxy_stream/{entity_id}", stream)
 
     def __init__(self) -> None:
         self.hub = None
@@ -295,6 +349,8 @@ class DemoClient:
         if msg_type == "call_service":
             self._service(kw["domain"], kw["service"], kw.get("service_data") or {}, kw["target"]["entity_id"])
             return {"context": {}}
+        if msg_type == "camera/stream":
+            raise HAError("Streaming needs the stream integration, which the demo doesn't have")
         if msg_type == "history/history_during_period":
             return self._history(kw["entity_ids"][0], kw["start_time"])
         raise HAError(f"Demo does not support {msg_type}")
