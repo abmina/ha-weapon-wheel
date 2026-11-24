@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.8
+- Fixed: in the **Companion app** the dashboard went back to the house after 30 seconds even while you were using
+  the menus. Every kind of tap, touch, click and scroll now counts as activity, and so does every step through the
+  menus.
+
 ## 0.3.7
 - In full screen the **full screen button is hidden**, so nothing on a wall panel invites leaving it. To leave, **hold
   the logo** in the top-left corner for 2 seconds (it fills with colour while you hold). A plain tap does nothing.

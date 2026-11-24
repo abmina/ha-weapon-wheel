@@ -97,6 +97,9 @@ const S = {
 };
 /** The structure being shown: the custom home when one is enabled, else the one built from Home Assistant. */
 const M = () => S.view || S.model;
+/** Last time someone used the dashboard (for the idle timer: back to the house after a while). */
+let lastActivity = Date.now();
+function markActive() { lastActivity = Date.now(); }
 /** Run fn against the automatic (Home Assistant) structure, whatever is on screen. */
 function withReal(fn) {
   const saved = S.view;
@@ -1561,6 +1564,7 @@ function closeSidebar() {
 }
 
 function renderCrumbs() {
+  markActive(); // every navigation step passes through here
   updatePlanButton();
   const c = $('#crumbs');
   document.title = houseName();
@@ -2850,10 +2854,12 @@ const fullscreen = (() => {
 // in the wheel menus, fold the wheel and the sidebar and return to the house.
 // Not while Customize, a card editor or the dashboard edit mode is open.
 // ===================================================================
-const IDLE_MS = 30000;
-let lastActivity = Date.now();
-for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'input']) {
-  document.addEventListener(ev, () => { lastActivity = Date.now(); }, { capture: true, passive: true });
+const IDLE_MS = (() => { try { return Number(localStorage.getItem('ww-idle-ms')) || 30000; } catch { return 30000; } })();
+// Every kind of input counts. Some web views (e.g. the Companion app) don't deliver pointer events to the
+// dashboard's frame but still deliver touches and clicks, so listen for all of them.
+for (const ev of ['pointerdown', 'pointermove', 'touchstart', 'touchmove', 'mousedown', 'mousemove', 'click',
+  'keydown', 'wheel', 'scroll', 'input', 'change', 'focusin']) {
+  document.addEventListener(ev, markActive, { capture: true, passive: true });
 }
 setInterval(() => {
   if (S.nav.level === 'house' || busy.v || S.plan) { if (S.nav.level === 'house') lastActivity = Date.now(); return; }
