@@ -12,8 +12,10 @@ The app reads Home Assistant's registries, and picks up any change to them autom
 - **Devices** in an area make up that room's device wheel. A device whose entities are spread over several areas
   appears in each of them, with just the entities for that room. Entities assigned to an area directly, without a device
   (scenes, helpers…), are grouped as *"<Room> extras"*.
-- **Entities** of a device make up the entity wheel. Disabled entities are always skipped. Hidden and
-  diagnostic/config entities are skipped unless you turn on the options below.
+- **Entities** of a device are split in two: **controls** (lights, switches, covers, climate, media players, locks,
+  scenes, buttons, numbers, selects…) go on the entity wheel; **sensors, binary sensors and other read-only entities,
+  and all config and diagnostic entities** are listed in the device's sidebar panel. Disabled entities are always
+  skipped, and hidden entities are skipped unless you turn on the option below.
 
 Set areas and floors under *Settings → Areas, labels & zones*.
 
@@ -23,8 +25,10 @@ Set areas and floors under *Settings → Areas, labels & zones*.
    with lights on glow.
 2. **Device wheel** - move the mouse (or your finger) in any direction to aim at a device, and click to open it. Click the
    centre, or press Esc, to go back.
-3. **Entity wheel** - same as the device wheel, for the entities of the chosen device.
-4. **Sidebar** - controls for the entity, its last 24 hours, more actions and its attributes.
+3. **Entity wheel and device panel** - the wheel shows the device's controls, and the sidebar shows its **Sensors**,
+   **Settings** and **Diagnostics**. A device with nothing to control (such as a temperature sensor) just opens its panel.
+4. **Entity sidebar** - pick a control on the wheel, or tap a row in the panel, for its controls, last 24 hours, more
+   actions and attributes. *‹ device* or Esc goes back to the device panel.
 
 With more than 10 devices in a room, the wheel gets pages. Use the arrows next to it, the scroll wheel or PageUp/PageDown.
 
@@ -60,7 +64,6 @@ Assistant backups.
 
 ## Options
 
-- **Show diagnostic and config entities** - include entities such as signal strength, battery and firmware.
 - **Show hidden entities** - include entities hidden in Home Assistant.
 - **Highlight colour** - optional hex colour that replaces the theme's blue. Leave it empty for the standard look.
 

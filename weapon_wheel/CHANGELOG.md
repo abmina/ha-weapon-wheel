@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.5
+- The entity wheel only shows **controls** (lights, switches, covers, climate, media, locks, scenes, buttons…).
+- Selecting a device opens its panel in the sidebar with its **Sensors**, **Settings** (config entities) and
+  **Diagnostics**. Tap one to see its value, history and actions; *‹ device* or Esc goes back to the panel.
+- Devices with nothing to operate (for example a temperature sensor) open their panel straight away instead of an
+  empty wheel.
+- Diagnostic entities are always available now (in the panel), so the *Show diagnostic entities* option is gone.
+  Config and diagnostic entities no longer count towards a room's temperature or "lights on".
+
 ## 0.2.4
 - Cameras: a **Snapshot / Live** switch in the sidebar. Live uses Home Assistant's HLS stream when the camera supports
   it (smooth video; hls.js is bundled, no internet needed) and falls back to MJPEG for every other camera, or when the

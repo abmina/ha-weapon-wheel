@@ -268,6 +268,25 @@ body.sidebar-open #sidebar { transform: none; }
 .sb-head .eid { font-family: var(--mono); font-size: 11.5px; color: var(--muted); word-break: break-all; }
 .sb-close { background: none; border: 0; font-size: 22px; color: var(--muted); cursor: pointer; padding: 4px; border-radius: 50%; }
 .sb-close:hover { color: var(--text); background: var(--chip); }
+.sb-back {
+  display: flex; align-items: center; gap: 2px; background: none; border: 0; cursor: pointer;
+  color: var(--primary); font-weight: 500; padding: 10px 12px 0; text-align: left;
+}
+.sb-back .mdi { font-size: 20px; }
+.ent-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.ent-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--card); border: 0;
+  border-top: 1px solid var(--line); cursor: pointer; text-align: left; width: 100%;
+}
+.ent-row:first-child { border-top: 0; }
+.ent-row:hover { background: var(--chip); }
+.ent-row > .mdi { font-size: 20px; color: var(--muted); width: 22px; flex: none; }
+.ent-row > .mdi.on { color: var(--primary); }
+.ent-row .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ent-row .v { color: var(--muted); white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+.ent-row .chev { color: var(--line); width: auto; font-size: 18px; }
+details.diag .ent-list { margin-top: 8px; }
+.hint-left { margin: 0; font-size: 13px; }
 .sb-body { flex: 1; overflow-y: auto; padding: 14px 16px 30px; display: flex; flex-direction: column; gap: 18px; }
 .sb-state { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .sb-state .v { font-size: 30px; font-weight: 600; line-height: 1.1; }

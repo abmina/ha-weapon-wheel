@@ -53,9 +53,10 @@ class BuildModelTests(unittest.TestCase):
         self.assertEqual(m["entities"]["sensor.coffee_machine_energy"]["name"], "Energy")
         self.assertEqual(m["entities"]["switch.coffee_machine"]["name"], "Coffee Machine")
 
-    def test_diagnostic_entities_filtered_by_option(self):
-        self.assertNotIn("sensor.fridge_sensor_battery", self.build()["entities"])
-        self.assertIn("sensor.fridge_sensor_battery", self.build({"show_diagnostic_entities": True})["entities"])
+    def test_diagnostic_and_config_entities_included_with_category(self):
+        m = self.build()
+        self.assertEqual(m["entities"]["sensor.fridge_sensor_battery"]["entity_category"], "diagnostic")
+        self.assertEqual(m["entities"]["switch.kitchen_spots_led_indicator"]["entity_category"], "config")
 
     def test_entities_without_device_get_room_node(self):
         m = self.build()

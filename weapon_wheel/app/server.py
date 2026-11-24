@@ -38,7 +38,6 @@ LAYOUT_FILE = DATA_DIR / "layout.json"
 PORT = int(os.environ.get("PORT", "8099"))
 
 DEFAULT_OPTIONS = {
-    "show_diagnostic_entities": False,
     "show_hidden_entities": False,
     "accent_color": "",
 }
@@ -195,7 +194,6 @@ def build_model(
     options: dict,
 ) -> dict:
     """Turn the raw registries into the floor > area > device > entity tree."""
-    show_diag = options.get("show_diagnostic_entities", False)
     show_hidden = options.get("show_hidden_entities", False)
 
     dev_by_id = {d["id"]: d for d in devices}
@@ -243,8 +241,6 @@ def build_model(
         if ent.get("disabled_by"):
             continue
         if ent.get("hidden_by") and not show_hidden:
-            continue
-        if ent.get("entity_category") and not show_diag:
             continue
         eid = ent["entity_id"]
         st = states.get(eid)

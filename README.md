@@ -24,7 +24,8 @@ you're at the controls. New devices show up on their own as soon as you assign t
   temperature, lights on and motion.
 - **Device wheel** - click a room: the house zooms away and the room's devices fan open as a weapon wheel.
   Point anywhere around it to aim, like a game controller.
-- **Entity wheel** - pick a device: the wheel folds shut and opens again with that device's entities.
+- **Entity wheel** - pick a device: the wheel folds shut and opens again with the things you can control on it.
+  Its sensors, settings and diagnostics are listed in the sidebar at the same time.
 - **Action sidebar** - pick an entity to get the right controls for it:
 
   | | |
@@ -98,7 +99,6 @@ Full documentation is on the app's **Documentation** tab ([DOCS.md](weapon_wheel
 
 | Option | Default | |
 |---|---|---|
-| `show_diagnostic_entities` | off | Include diagnostic and config entities (signal strength, battery, firmware…) |
 | `show_hidden_entities` | off | Include entities hidden in Home Assistant |
 | `accent_color` | *(empty)* | Optional hex colour that replaces the theme's blue |
 
@@ -108,7 +108,8 @@ Full documentation is on the app's **Documentation** tab ([DOCS.md](weapon_wheel
 They are saved in the app's own storage and shared by everyone who opens it.
 
 **A device is missing.** It needs an area, either on the device or on its entities. Disabled entities are never
-shown, and hidden or diagnostic entities only appear if you turn on the options above. Also check *Customize* in case it was hidden there.
+shown, and hidden entities only appear if you turn on the option above. Sensors and diagnostics are not on the wheel:
+they are listed in the device's sidebar panel. Also check *Customize* in case it was hidden there.
 
 **Who can use it?** Like every app panel, only Home Assistant administrators see it in the sidebar.
 

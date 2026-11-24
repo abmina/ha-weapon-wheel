@@ -127,6 +127,27 @@ function visibleEntities(nid) {
   if (!d) return [];
   return d.entities.filter((e) => !isHidden('entities', e) && S.states[e]);
 }
+/** Domains you operate from the wheel. Everything else (sensors, binary sensors, weather, events, updates…)
+ *  and every config/diagnostic entity is listed in the device's sidebar panel instead. */
+const CONTROL_DOMAINS = new Set([
+  'light', 'switch', 'fan', 'cover', 'climate', 'media_player', 'lock', 'vacuum', 'lawn_mower', 'valve',
+  'water_heater', 'humidifier', 'alarm_control_panel', 'siren', 'remote', 'camera', 'scene', 'script', 'automation',
+  'button', 'input_button', 'number', 'input_number', 'select', 'input_select', 'input_boolean', 'input_text', 'text',
+  'input_datetime', 'date', 'time', 'datetime', 'timer', 'counter',
+]);
+const category = (eid) => M().entities[eid]?.entity_category || null;
+const isControl = (eid) => CONTROL_DOMAINS.has(domainOf(eid)) && !category(eid);
+/** Entities shown on the entity wheel. */
+const controlEntities = (nid) => visibleEntities(nid).filter(isControl);
+/** Entities listed in the device panel (readings, settings, diagnostics). */
+const infoEntities = (nid) => visibleEntities(nid).filter((e) => !isControl(e));
+/** The device's "real" entities, without config/diagnostic ones (for icons, summaries, room stats). */
+function mainEntities(nid) {
+  const all = visibleEntities(nid);
+  const main = all.filter((e) => !category(e));
+  return main.length ? main : all;
+}
+
 function visibleNodes(aid) {
   const a = M().areas[aid];
   if (!a) return [];
@@ -254,7 +275,7 @@ function deviceIcon(nid) {
   const ov = L('devices', devKey(nid)).icon;
   if (ov) return ov;
   if (M().devices[nid].virtual) return 'mdi:shape-plus';
-  const p = primaryEntity(visibleEntities(nid));
+  const p = primaryEntity(mainEntities(nid));
   return p ? entityIcon(p) : 'mdi:devices';
 }
 function roomIcon(aid) {
@@ -349,7 +370,7 @@ function stateLabel(eid) {
   return u && !u.startsWith('%') && !u.startsWith('°') ? `${v} ${u}` : `${v}${u}`;
 }
 function deviceSub(nid) {
-  const ents = visibleEntities(nid);
+  const ents = mainEntities(nid);
   if (ents.length === 1) return stateLabel(ents[0]);
   const p = primaryEntity(ents);
   if (p && PRIMARY_ORDER.indexOf(domainOf(p)) >= 0 && PRIMARY_ORDER.indexOf(domainOf(p)) < 14) {
@@ -508,6 +529,7 @@ function roomStats(aid) {
   let lights = 0, active = 0, temp = null, motion = false;
   for (const nid of nodes) {
     for (const eid of visibleEntities(nid)) {
+      if (category(eid)) continue;
       const d = domainOf(eid);
       const st = S.states[eid];
       if (d === 'light' && st.state === 'on') lights++;
@@ -843,11 +865,11 @@ function deviceItems(aid) {
     label: devName(nid),
     icon: deviceIcon(nid),
     sub: deviceSub(nid),
-    active: visibleEntities(nid).some(isActive),
+    active: mainEntities(nid).some(isActive),
   }));
 }
 function entityItems(nid) {
-  return visibleEntities(nid).map((eid) => ({
+  return controlEntities(nid).map((eid) => ({
     id: eid, label: entName(eid), icon: entityIcon(eid), sub: stateLabel(eid), active: isActive(eid),
   }));
 }
@@ -863,7 +885,7 @@ function deviceWheelOpts(aid, selectedId = null) {
 function entityWheelOpts(nid) {
   const d = M().devices[nid];
   return {
-    center: { icon: deviceIcon(nid), title: devName(nid), sub: [d.manufacturer, d.model].filter(Boolean).join(' · ') || `${visibleEntities(nid).length} entities` },
+    center: { icon: deviceIcon(nid), title: devName(nid), sub: [d.manufacturer, d.model].filter(Boolean).join(' · ') || `${controlEntities(nid).length} controls` },
     selectedId: S.nav.entityId,
     onSelect: (it) => openEntity(it.id),
     onHide: (it) => hideItem('entities', it.id, entName(it.id)),
@@ -893,10 +915,12 @@ async function enterArea(aid, room) {
 }
 
 async function enterDevice(nid) {
-  const ents = visibleEntities(nid);
-  if (setting('skipSingleEntity') && ents.length === 1) {
-    S.nav.nodeId = null;
-    openEntity(ents[0]);
+  const ctl = controlEntities(nid);
+  // Nothing to operate (e.g. a temperature sensor): just show its readings in the sidebar.
+  // One control and "skip" turned on: go straight to it.
+  if (!ctl.length || (setting('skipSingleEntity') && ctl.length === 1)) {
+    openDevicePanel(nid);
+    if (ctl.length) openEntity(ctl[0]);
     wheel.opts.selectedId = nid;
     wheel.paintClasses();
     return;
@@ -907,8 +931,26 @@ async function enterDevice(nid) {
   S.nav.nodeId = nid;
   S.nav.entityId = null;
   wheel.set(entityItems(nid), entityWheelOpts(nid));
+  if (infoEntities(nid).length) openDevicePanel(nid);
   renderCrumbs();
   await wheel.open();
+}
+
+/** Sidebar panel for a device: its sensor readings, settings and diagnostics. */
+function openDevicePanel(nid) {
+  S.nav.panel = nid;
+  S.nav.entityId = null;
+  renderSidebar();
+  document.body.classList.add('sidebar-open');
+  $('#sidebar').setAttribute('aria-hidden', 'false');
+  renderCrumbs();
+}
+/** From an entity back to its device panel. */
+function backToPanel() {
+  S.nav.entityId = null;
+  if (S.nav.level === 'entities') { wheel.opts.selectedId = null; wheel.paintClasses(); }
+  renderSidebar();
+  renderCrumbs();
 }
 
 async function leaveDevice() {
@@ -952,6 +994,7 @@ function openEntity(eid) {
 }
 function closeSidebar() {
   stopCamera();
+  S.nav.panel = null;
   if (!document.body.classList.contains('sidebar-open')) return;
   document.body.classList.remove('sidebar-open');
   $('#sidebar').setAttribute('aria-hidden', 'true');
@@ -971,7 +1014,8 @@ function renderCrumbs() {
     if (f && (isOutdoorFloor(f) || M().floors.length > 1)) parts.push([floorName(f), () => guard(goHouse)]);
     parts.push([areaName(n.areaId), n.level === 'entities' ? () => guard(leaveDevice) : null]);
   }
-  if (n.nodeId && M().devices[n.nodeId]) parts.push([devName(n.nodeId), n.entityId ? closeSidebar : null]);
+  const dev = n.nodeId || n.panel;
+  if (dev && M().devices[dev]) parts.push([devName(dev), n.entityId ? (n.panel ? backToPanel : closeSidebar) : null]);
   if (n.entityId && M().entities[n.entityId]) parts.push([entName(n.entityId), null]);
   const els = [];
   parts.forEach(([label, fn], i) => {
@@ -1010,15 +1054,18 @@ function rerenderAll() {
     goHouse();
     return;
   }
-  if (n.level === 'entities' && (!M().devices[n.nodeId] || !visibleNodes(n.areaId).includes(n.nodeId) || !visibleEntities(n.nodeId).length)) {
+  if (n.level === 'entities' && (!M().devices[n.nodeId] || !visibleNodes(n.areaId).includes(n.nodeId) || !controlEntities(n.nodeId).length)) {
     leaveDevice();
     return;
   }
-  if (n.entityId && (!M().entities[n.entityId] || isHidden('entities', n.entityId))) closeSidebar();
+  if (n.entityId && (!M().entities[n.entityId] || isHidden('entities', n.entityId))) {
+    if (n.panel) n.entityId = null; else closeSidebar();
+  }
+  if (n.panel && (!M().devices[n.panel] || isHidden('devices', devKey(n.panel)))) closeSidebar();
   if (n.level === 'house') buildHouse();
   else if (n.level === 'devices') { wheel.opts = deviceWheelOpts(n.areaId, wheel.opts.selectedId); wheel.update(deviceItems(n.areaId)); }
   else { wheel.opts = entityWheelOpts(n.nodeId); wheel.update(entityItems(n.nodeId)); }
-  if (n.entityId) renderSidebar();
+  if (n.entityId || n.panel) renderSidebar();
   renderCrumbs();
 }
 
@@ -1476,15 +1523,57 @@ function attrsBlock(eid) {
     h('table', {}, rows.map(([k, v]) => h('tr', {}, h('td', {}, pretty(k)), h('td', {}, typeof v === 'object' ? JSON.stringify(v) : String(v))))));
 }
 
+function entityRow(eid) {
+  const v = stateLabel(eid);
+  return h('button', { class: 'ent-row', onclick: () => openEntity(eid), title: eid },
+    ico(entityIcon(eid), isActive(eid) ? 'on' : ''),
+    h('span', { class: 'n' }, entName(eid)),
+    h('span', { class: 'v' }, v),
+    ico('mdi:chevron-right', 'chev'));
+}
+
+function renderDevicePanel(nid) {
+  const sb = $('#sidebar');
+  const d = M().devices[nid];
+  const info = infoEntities(nid);
+  const readings = info.filter((e) => !category(e));
+  const settings = info.filter((e) => category(e) === 'config');
+  const diags = info.filter((e) => category(e) === 'diagnostic');
+  const ctl = controlEntities(nid);
+  const list = (ids) => h('div', { class: 'ent-list' }, ids.map(entityRow));
+  const sub = [d.manufacturer, d.model].filter(Boolean).join(' · ');
+  const scroll = $('.sb-body', sb)?.scrollTop || 0;
+  const diagOpen = !!sb.querySelector('details.diag[open]');
+  sb.replaceChildren(
+    h('div', { class: 'sb-head' },
+      ico(deviceIcon(nid), 'big-icon'),
+      h('div', { class: 't' }, h('h2', {}, devName(nid)), sub ? h('div', { class: 'eid' }, sub) : null),
+      h('button', { class: 'sb-close', title: 'Close (Esc)', onclick: closeSidebar }, ico('mdi:close'))),
+    h('div', { class: 'sb-body' },
+      ctl.length && S.nav.level === 'entities'
+        ? h('p', { class: 'muted hint-left' }, ico('mdi:gesture-tap'), ` Pick a control on the wheel to operate it.`)
+        : null,
+      readings.length ? sec('Sensors', list(readings)) : null,
+      settings.length ? sec('Settings', list(settings)) : null,
+      diags.length ? h('details', { class: 'attrs diag', open: diagOpen }, h('summary', {}, `Diagnostics (${diags.length})`), list(diags)) : null,
+      !info.length && !ctl.length ? h('p', { class: 'muted' }, 'This device has nothing to show.') : null,
+      !d.virtual ? sec('Dashboard', row(act('Hide device', 'mdi:eye-off-outline', () => hideItem('devices', devKey(nid), devName(nid)), 'small'))) : null));
+  $('.sb-body', sb).scrollTop = scroll;
+}
+
 function renderSidebar() {
   stopCamera();
   const eid = S.nav.entityId;
   const sb = $('#sidebar');
+  if (!eid && S.nav.panel && M().devices[S.nav.panel]) { renderDevicePanel(S.nav.panel); return; }
   if (!eid || !S.states[eid] || !M().entities[eid]) { closeSidebar(); return; }
   const scroll = $('.sb-body', sb)?.scrollTop || 0;
   const openDetails = [...sb.querySelectorAll('details[open] > summary')].map((x) => x.textContent);
   const node = M().entities[eid].node;
+  const panel = S.nav.panel && M().devices[S.nav.panel] ? S.nav.panel : null;
   sb.replaceChildren(
+    panel ? h('button', { class: 'sb-back', onclick: backToPanel, title: 'Back to the device (Esc)' },
+      ico('mdi:chevron-left'), devName(panel)) : null,
     h('div', { class: 'sb-head' },
       ico(entityIcon(eid), `big-icon`),
       h('div', { class: 't' }, h('h2', {}, entName(eid)), h('div', { class: 'eid' }, eid)),
@@ -1722,7 +1811,8 @@ document.addEventListener('keydown', (e) => {
       break;
     }
     case 'Escape': case 'Backspace':
-      if (document.body.classList.contains('sidebar-open')) closeSidebar();
+      if (S.nav.entityId && S.nav.panel) backToPanel();
+      else if (document.body.classList.contains('sidebar-open')) closeSidebar();
       else back();
       e.preventDefault();
       break;
@@ -1740,8 +1830,9 @@ function onStates(batch) {
   for (const [eid, st] of Object.entries(batch)) {
     if (st) S.states[eid] = st; else delete S.states[eid];
     if (eid === S.nav.entityId) touchesSidebar = true;
+    else if (!S.nav.entityId && S.nav.panel && M().entities[eid]?.node === S.nav.panel) touchesSidebar = true;
   }
-  if (touchesSidebar && domainOf(S.nav.entityId) !== 'camera'
+  if (touchesSidebar && (!S.nav.entityId || domainOf(S.nav.entityId) !== 'camera')
       && !S.interacting && !document.activeElement?.closest?.('#sidebar input')) renderSidebar();
   if (paintQueued) return;
   paintQueued = true;

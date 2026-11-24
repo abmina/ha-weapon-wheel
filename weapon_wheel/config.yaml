@@ -1,5 +1,5 @@
 name: Weapon Wheel Dashboard
-version: "0.2.4"
+version: "0.2.5"
 slug: weapon_wheel
 description: Game-style dashboard - a house map with clickable rooms that open weapon-wheel menus for your devices and entities
 url: https://github.com/abmina/ha-weapon-wheel
@@ -14,9 +14,9 @@ panel_title: Weapon Wheel
 # call services through the Supervisor's Home Assistant proxy.
 homeassistant_api: true
 options:
-  show_diagnostic_entities: false
   show_hidden_entities: false
 schema:
-  show_diagnostic_entities: bool
+  # No longer used: diagnostic entities are always listed in the device sidebar.
+  show_diagnostic_entities: bool?
   show_hidden_entities: bool
   accent_color: match(^#[0-9a-fA-F]{6}$)?

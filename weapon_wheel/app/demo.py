@@ -81,6 +81,7 @@ DEVICES: list[tuple] = [
     ]),
     ("d_k_lights", "Kitchen Spots", "kitchen", "Shelly", "Dimmer 2", [
         ("light.kitchen_spots", "on", {**LIGHT_DIM}, {}),
+        ("switch.kitchen_spots_led_indicator", "on", {}, {"entity_category": "config"}),
         ("sensor.kitchen_spots_power", "18.4", {"unit_of_measurement": "W", "device_class": "power", "state_class": "measurement"}, {}),
     ]),
     ("d_k_coffee", "Coffee Machine", "kitchen", "Shelly", "Plug S", [
