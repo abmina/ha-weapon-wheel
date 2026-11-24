@@ -121,7 +121,8 @@ They are saved in the app's own storage and shared by everyone who opens it.
 shown, and hidden entities only appear if you turn on the option above. Sensors and diagnostics are not on the wheel:
 they are listed in the device's sidebar panel. Also check *Customize* in case it was hidden there.
 
-**Who can use it?** Like every app panel, only Home Assistant administrators see it in the sidebar.
+**Who can use it?** Every Home Assistant user, so it works on a wall panel with its own account. Only administrators
+can edit it.
 
 **Something isn't working.** Open an [issue](https://github.com/abmina/ha-weapon-wheel/issues/new/choose) with
 the app log.

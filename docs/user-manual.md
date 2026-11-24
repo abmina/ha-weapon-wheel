@@ -24,9 +24,10 @@ screenshots come from the built-in demo house.
 12. [Build a custom home](#12-build-a-custom-home)
 13. [App options](#13-app-options)
 14. [Keyboard, mouse and touch](#14-keyboard-mouse-and-touch)
-15. [Updates, backups and where settings are kept](#15-updates-backups-and-where-settings-are-kept)
-16. [Troubleshooting](#16-troubleshooting)
-17. [FAQ](#17-faq)
+15. [Wall panels and other users](#15-wall-panels-and-other-users)
+16. [Updates, backups and where settings are kept](#16-updates-backups-and-where-settings-are-kept)
+17. [Troubleshooting](#17-troubleshooting)
+18. [FAQ](#18-faq)
 
 ---
 
@@ -34,7 +35,8 @@ screenshots come from the built-in demo house.
 
 - **Home Assistant OS or Supervised**: an installation with the **Apps** page (*Settings → Apps*). Home Assistant
   Container and Core can't run apps.
-- An **administrator** account. Like other app panels, the dashboard only appears in the sidebar for administrators.
+- A Home Assistant account. Every user sees the dashboard in the sidebar, but only **administrators** can edit it (see
+  [Wall panels and other users](#15-wall-panels-and-other-users)).
 - **Floors** (optional) need Home Assistant 2024.4 or newer. Without floors, all rooms go in one storey.
 
 > On older Home Assistant versions, apps are called **add-ons** and live under *Settings → Add-ons*. Everything in this
@@ -364,7 +366,34 @@ On phones the sidebar slides up from the bottom and the wheel moves up to make r
 |---|---|
 | ![Phone house](images/manual/phone-house.png) | ![Phone controls](images/manual/phone-control.png) |
 
-## 15. Updates, backups and where settings are kept
+## 15. Wall panels and other users
+
+Every Home Assistant user can open the dashboard, including non-administrator accounts such as a wall-panel user.
+What they can do depends on their role:
+
+| | Administrators | Other users |
+|---|---|---|
+| Use the house, wheels, controls and cameras | ✓ | ✓ |
+| **Edit** (room cards, weather, floor plan) | ✓ | hidden |
+| **Customize** | ✓ | hidden |
+| Hide or unhide items (right-click / long-press, *Hide entity*, *Hide device*) | ✓ | hidden |
+
+The app checks this itself: a change sent by a non-administrator is refused, not only hidden on screen. Set up the
+dashboard as an administrator; everyone else sees the result.
+
+**Make Weapon Wheel the start page of a wall panel.** The dashboard's address is
+`http://<your-home-assistant>:8123/e7dd1b0c_weapon_wheel` (the path shown in the address bar when you open
+Weapon Wheel from the sidebar).
+
+- In a **kiosk browser** (for example Fully Kiosk Browser), set that address as the start URL. This is the most
+  reliable way.
+- In the **Companion app**, log in as the wall-panel user and open Weapon Wheel; the app reopens the last page you
+  were on. If your Home Assistant version lists app panels under *Profile → Dashboard*, you can also choose it there.
+
+> Controls on the dashboard work through the app, so a non-administrator can operate every device the dashboard shows.
+> Hide anything a wall panel shouldn't control, as an administrator, in Customize.
+
+## 16. Updates, backups and where settings are kept
 
 - **Updates** appear on the app page in Home Assistant. If one doesn't show up, use *Settings → Apps → Install app →
   ⋮ → Check for updates*. The changelog lists what's new.
@@ -374,7 +403,7 @@ On phones the sidebar slides up from the bottom and the wheel moves up to make r
 - The dashboard **never changes Home Assistant**: hiding, renaming and building a custom home only affect the
   dashboard.
 
-## 16. Troubleshooting
+## 17. Troubleshooting
 
 **The dashboard says "Connecting to Home Assistant…" or the pill says *Offline*.**
 Open the app's **Log** tab. The app connects through the Supervisor automatically; restarting the app usually fixes a
@@ -399,17 +428,21 @@ still works; check the camera's integration if you need smooth video.
 **The room temperature shows the wrong sensor.**
 Open **Edit**, click the room's pencil, remove *Temperature (automatic)* and add the sensor you want under **Shows**.
 
+**A user can't see the Edit or Customize buttons.**
+Only Home Assistant administrators can edit the dashboard. Make the user an administrator under *Settings → People*, or
+edit with an administrator account.
+
 **Something else.**
 Open an [issue](https://github.com/abmina/ha-weapon-wheel/issues/new/choose) with the app log and your Home
 Assistant version.
 
-## 17. FAQ
+## 18. FAQ
 
 **Does it replace my Home Assistant dashboards?**
 No. It's an extra page in the sidebar. Your other dashboards keep working.
 
 **Can several people use it at once?**
-Yes. Everyone sees live states, and customizations are shared.
+Yes. Everyone sees live states, and customizations are shared. Only administrators can change them.
 
 **Does it need the internet?**
 No. Everything, including the icons and the video player, is bundled with the app. It talks only to your Home

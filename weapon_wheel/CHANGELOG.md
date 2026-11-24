@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4
+- **Every Home Assistant user** can now open the dashboard, so it works on a wall panel with its own non-admin account.
+- **Only administrators can edit**: for other users *Edit*, *Customize* and hiding/unhiding items (right-click,
+  *Hide entity*, *Hide device*) are hidden, and the app refuses changes from them. Everyone can still use the controls.
+
 ## 0.3.3
 - **Weather** in the top-left corner of the house: current condition, temperature, today's high and low, humidity and
   the next days. Uses Home Assistant's own Met.no weather by default; choose any other weather integration (or none)

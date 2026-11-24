@@ -363,6 +363,12 @@ class DemoClient:
             return [{"entry_id": f"entry_{d}", "domain": d, "title": n} for d, n in set(DEMO_INTEGRATIONS.values())]
         if msg_type == "manifest/list":
             return [{"domain": d, "name": n} for d, n in set(DEMO_INTEGRATIONS.values())]
+        if msg_type == "config/auth/list":
+            return [
+                {"id": "u_owner", "name": "Owner", "is_owner": True, "is_active": True, "group_ids": ["system-admin"]},
+                {"id": "u_admin", "name": "Admin", "is_owner": False, "is_active": True, "group_ids": ["system-admin"]},
+                {"id": "u_panel", "name": "Wall panel", "is_owner": False, "is_active": True, "group_ids": ["system-users"]},
+            ]
         if msg_type == "get_config":
             return {"location_name": "Demo House"}
         if msg_type == "get_services":

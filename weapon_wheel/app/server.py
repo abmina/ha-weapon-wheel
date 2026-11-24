@@ -381,6 +381,7 @@ class Hub:
         self._refresh_handle: asyncio.TimerHandle | None = None
         self._pending_states: dict[str, Any] = {}
         self._flush_handle: asyncio.TimerHandle | None = None
+        self.users: dict[str, dict] = {}  # Home Assistant user id -> user (to tell admins from others)
 
     @staticmethod
     def _clean_layout(layout: Any) -> dict:
@@ -406,6 +407,7 @@ class Hub:
             except HAError:
                 config = {}
             integrations = await self._integrations()
+            await self.load_users()
             self.states = {s["entity_id"]: s for s in states}
             self.model = build_model(
                 floors, areas, devices, entities, self.states, services, self.options, integrations
@@ -487,6 +489,30 @@ class Hub:
         for ws in dead:
             self.sockets.discard(ws)
 
+    async def load_users(self) -> None:
+        try:
+            users = await self.client.call("config/auth/list")
+        except HAError:
+            return
+        self.users = {u["id"]: u for u in users or [] if isinstance(u, dict) and u.get("id")}
+
+    async def viewer(self, request: web.Request) -> dict:
+        """Who is looking, from the user headers Home Assistant's Ingress adds to every request.
+
+        Without those headers (older Home Assistant, local development) everyone counts as an
+        administrator, as before. A user Home Assistant doesn't know about is not an administrator.
+        """
+        uid = request.headers.get("X-Remote-User-Id")
+        if not uid:
+            return {"id": None, "name": None, "admin": True}
+        user = self.users.get(uid)
+        if user is None:
+            await self.load_users()  # a user created since the last refresh
+            user = self.users.get(uid)
+        admin = bool(user) and (bool(user.get("is_owner")) or "system-admin" in (user.get("group_ids") or []))
+        name = request.headers.get("X-Remote-User-Display-Name") or (user or {}).get("name")
+        return {"id": uid, "name": name, "admin": admin}
+
     def snapshot(self) -> dict:
         model = self.model
         states = {}
@@ -551,11 +577,13 @@ async def no_stale_assets(request: web.Request, response: web.StreamResponse) ->
 
 async def handle_model(request: web.Request) -> web.Response:
     hub: Hub = request.app[HUB]
-    return web.json_response(hub.snapshot())
+    return web.json_response({**hub.snapshot(), "viewer": await hub.viewer(request)})
 
 
 async def handle_layout_put(request: web.Request) -> web.Response:
     hub: Hub = request.app[HUB]
+    if not (await hub.viewer(request))["admin"]:
+        return json_error(403, "Only Home Assistant administrators can change the dashboard")
     try:
         body = await request.json()
     except ValueError:

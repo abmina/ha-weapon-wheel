@@ -1,5 +1,5 @@
 name: Weapon Wheel Dashboard
-version: "0.3.3"
+version: "0.3.4"
 slug: weapon_wheel
 description: Game-style dashboard - a house map with clickable rooms that open weapon-wheel menus for your devices and entities
 url: https://github.com/abmina/ha-weapon-wheel
@@ -10,6 +10,8 @@ init: false
 ingress: true
 panel_icon: mdi:target
 panel_title: Weapon Wheel
+# Visible to non-admin users too (e.g. a wall panel). Only administrators can edit the dashboard.
+panel_admin: false
 # homeassistant_api lets the app read floors, areas, devices and entities and
 # call services through the Supervisor's Home Assistant proxy.
 homeassistant_api: true

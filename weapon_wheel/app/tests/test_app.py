@@ -157,6 +157,27 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         data = await (await self.client.get("/api/model")).json()
         self.assertEqual(data["model"]["entities"]["weather.forecast_home"]["platform"], "met")
 
+    async def test_viewer_roles(self):
+        async def viewer(uid):
+            headers = {"X-Remote-User-Id": uid} if uid else {}
+            return (await (await self.client.get("/api/model", headers=headers)).json())["viewer"]
+        self.assertTrue((await viewer(None))["admin"])          # no Ingress headers: as before
+        self.assertTrue((await viewer("u_owner"))["admin"])
+        self.assertTrue((await viewer("u_admin"))["admin"])
+        self.assertFalse((await viewer("u_panel"))["admin"])
+        self.assertFalse((await viewer("u_unknown"))["admin"])  # unknown user: not an admin
+
+    async def test_only_admins_change_the_layout(self):
+        body = {"entities": {"light.kitchen_spots": {"hidden": True}}}
+        r = await self.client.put("/api/layout", json=body, headers={"X-Remote-User-Id": "u_panel"})
+        self.assertEqual(r.status, 403)
+        r = await self.client.put("/api/layout", json=body, headers={"X-Remote-User-Id": "u_admin"})
+        self.assertEqual(r.status, 200)
+        # controlling devices still works for everyone
+        r = await self.client.post("/api/call", json={"domain": "light", "service": "turn_off", "entity_id": "light.kitchen_spots"},
+                                   headers={"X-Remote-User-Id": "u_panel"})
+        self.assertEqual(r.status, 200)
+
     async def test_index_served(self):
         r = await self.client.get("/")
         self.assertEqual(r.status, 200)

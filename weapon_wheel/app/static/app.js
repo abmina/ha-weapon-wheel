@@ -680,7 +680,7 @@ function buildHouse() {
 // ===================================================================
 /** Edit mode on the house: a pencil on every room card; in a custom home also drag/resize rooms. */
 function startPlanEdit() {
-  if (S.nav.level !== 'house') return;
+  if (!S.admin || S.nav.level !== 'house') return;
   S.plan = { draft: {} };
   hideTooltip();
   setHouseFocus(-1, true);
@@ -726,6 +726,7 @@ function renderPlanBar() {
 }
 /** Like a Home Assistant card editor: name, icon and what the card shows, with a live preview. */
 function openCardEditor(aid) {
+  if (!S.admin) return;
   W = JSON.parse(JSON.stringify(S.layout));
   W.settings ||= {};
   const custom = !!M().custom;
@@ -790,7 +791,7 @@ function openCardEditor(aid) {
 }
 
 function updatePlanButton() {
-  $('#btn-plan').hidden = !(M() && S.nav.level === 'house' && !S.plan);
+  $('#btn-plan').hidden = !(S.admin && M() && S.nav.level === 'house' && !S.plan);
 }
 const svgPoint = (svg, e) => {
   const p = svg.createSVGPoint();
@@ -955,6 +956,7 @@ $('#weather').addEventListener('click', () => {
 
 /** Edit-mode dialog: pick which weather entity the house shows. */
 function openWeatherEditor() {
+  if (!S.admin) return;
   W = JSON.parse(JSON.stringify(S.layout));
   W.settings ||= {};
   const ed = $('#card-editor');
@@ -1292,7 +1294,7 @@ wheelView.addEventListener('click', (e) => {
 });
 wheelView.addEventListener('contextmenu', (e) => {
   const hit = wheel.hitTest(e.clientX, e.clientY);
-  if (hit >= 0 && wheel.opts.onHide) {
+  if (S.admin && hit >= 0 && wheel.opts.onHide) {
     e.preventDefault();
     wheel.opts.onHide(wheel.pageItems[hit]);
   }
@@ -1585,6 +1587,7 @@ function renderCrumbs() {
 }
 
 function hideItem(kind, key, label) {
+  if (!S.admin) return;
   const prev = { ...(S.layout[kind][key] || {}) };
   S.layout[kind][key] = { ...prev, hidden: true };
   saveLayout().then(() => {
@@ -2117,7 +2120,7 @@ function renderDevicePanel(nid) {
       settings.length ? sec('Settings', list(settings)) : null,
       diags.length ? h('details', { class: 'attrs diag', open: diagOpen }, h('summary', {}, `Diagnostics (${diags.length})`), list(diags)) : null,
       !info.length && !ctl.length ? h('p', { class: 'muted' }, 'This device has nothing to show.') : null,
-      !d.virtual ? sec('Dashboard', row(act('Hide device', 'mdi:eye-off-outline', () => hideItem('devices', devKey(nid), devName(nid)), 'small'))) : null));
+      S.admin && !d.virtual ? sec('Dashboard', row(act('Hide device', 'mdi:eye-off-outline', () => hideItem('devices', devKey(nid), devName(nid)), 'small'))) : null));
   $('.sb-body', sb).scrollTop = scroll;
 }
 
@@ -2144,7 +2147,7 @@ function renderSidebar() {
       historyBlock(eid),
       servicesBlock(eid),
       attrsBlock(eid),
-      sec('Dashboard', row(
+      !S.admin ? null : sec('Dashboard', row(
         act('Hide entity', 'mdi:eye-off', () => hideItem('entities', eid, entName(eid)), 'small'),
         node && !M().devices[node]?.virtual ? act('Hide device', 'mdi:eye-off-outline', () => hideItem('devices', devKey(node), devName(node)), 'small') : null,
       ))));
@@ -2174,6 +2177,7 @@ const edOpen = new Set(); // custom rooms that are unfolded in the editor
 const stopKeys = (el) => { el.addEventListener('keydown', (e) => e.stopPropagation()); return el; };
 
 function openEditor() {
+  if (!S.admin) return;
   W = JSON.parse(JSON.stringify(S.layout));
   W.settings ||= {};
   const ed = $('#editor');
@@ -2821,6 +2825,12 @@ function applyAccent(hex) {
 async function loadModel() {
   const data = await api('api/model');
   S.demo = data.demo;
+  // Non-admin users (e.g. a wall panel) can use the dashboard but not edit it; the server enforces this too.
+  S.admin = data.viewer?.admin !== false;
+  document.body.classList.toggle('viewer-locked', !S.admin);
+  $('#wheel-hint').textContent = S.admin
+    ? 'Point to aim · click to select · center or Esc to go back · right-click to hide'
+    : 'Point to aim · click to select · center or Esc to go back';
   applyAccent(data.options?.accent_color);
   S.layout = { floors: {}, areas: {}, devices: {}, entities: {}, settings: {}, ...data.layout };
   setConn(data.connected);

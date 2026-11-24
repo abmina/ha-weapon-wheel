@@ -441,6 +441,9 @@ details[open] > summary .caret { transform: rotate(90deg); }
   .wx-temp { font-size: 18px; }
 }
 
+/* Non-admin users (e.g. a wall panel): no editing controls. */
+body.viewer-locked #btn-edit, body.viewer-locked #btn-plan, body.viewer-locked .card-edit { display: none !important; }
+
 /* ---------- floor-plan editor ---------- */
 #plan-bar {
   position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 15; max-width: calc(100% - 24px);

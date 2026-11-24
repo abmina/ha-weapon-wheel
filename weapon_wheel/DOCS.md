@@ -108,6 +108,12 @@ Assistant backups.
 
 The dashboard follows your device's light or dark mode automatically.
 
+## Other users and wall panels
+
+Every Home Assistant user can open the dashboard and use its controls. Only **administrators** see *Edit* and
+*Customize* and can hide or unhide items; the app also refuses changes from anyone else. To make it a wall panel's
+start page, point the kiosk browser at `http://<your-home-assistant>:8123/e7dd1b0c_weapon_wheel`.
+
 ## Security
 
 - The page is only served through Home Assistant's Ingress, so it uses Home Assistant's login. Direct requests to the app's
