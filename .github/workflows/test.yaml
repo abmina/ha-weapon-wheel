@@ -1,0 +1,50 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install aiohttp
+        run: pip install aiohttp
+      - name: Backend tests (demo house + mock Home Assistant)
+        working-directory: weapon_wheel/app
+        run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Frontend syntax check
+        run: node --check weapon_wheel/app/static/app.js
+
+  lint-addon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Home Assistant add-on linter
+        uses: frenck/action-addon-linter@v2
+        with:
+          path: "./weapon_wheel"
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, aarch64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - name: Build the add-on image
+        run: |
+          base=$(grep "${{ matrix.arch }}:" weapon_wheel/build.yaml | awk '{print $2}')
+          platform=$([ "${{ matrix.arch }}" = aarch64 ] && echo linux/arm64 || echo linux/amd64)
+          docker build --platform "$platform" --build-arg BUILD_FROM="$base" -t weapon-wheel:test weapon_wheel
+          docker run --rm --platform "$platform" --entrypoint python3 weapon-wheel:test \
+            -c "import aiohttp, sys; sys.path.insert(0, '/app'); import server; print('ok', aiohttp.__version__)"
+          docker run --rm --platform "$platform" --entrypoint ls weapon-wheel:test /app/static/vendor/mdi/fonts

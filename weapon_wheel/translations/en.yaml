@@ -1,0 +1,10 @@
+configuration:
+  show_diagnostic_entities:
+    name: Show diagnostic and config entities
+    description: Include entities such as signal strength, battery level and firmware that Home Assistant marks as diagnostic or configuration.
+  show_hidden_entities:
+    name: Show hidden entities
+    description: Include entities that are hidden in Home Assistant.
+  accent_color:
+    name: Accent colour
+    description: Hex colour used for highlights, e.g. "#ff7a1a".

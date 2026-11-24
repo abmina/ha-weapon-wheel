@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Weapon Wheel</title>
+  <link rel="stylesheet" href="vendor/mdi/css/materialdesignicons.min.css"
+        onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css'">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <nav id="crumbs" aria-label="Breadcrumb"></nav>
+      <div class="top-actions">
+        <span id="conn" class="conn" title="Connection"></span>
+        <button id="btn-edit" class="icon-btn" title="Customize what is shown">
+          <i class="mdi mdi-tune-variant"></i><span>Customize</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="stage">
+      <section id="house-view" class="view">
+        <div id="house-frame">
+          <svg id="house" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div id="house-labels"></div>
+        </div>
+        <div id="empty-house" class="empty" hidden>
+          <i class="mdi mdi-home-search-outline"></i>
+          <p>No rooms found yet.</p>
+          <p class="muted">Create areas (and optionally floors) in Home Assistant, assign devices to them, and they will appear here.</p>
+        </div>
+      </section>
+
+      <section id="wheel-view" class="view hidden">
+        <div id="wheel-wrap">
+          <button class="page-btn prev" id="page-prev" title="Previous page"><i class="mdi mdi-chevron-left"></i></button>
+          <div id="wheel">
+            <svg id="wheel-svg" viewBox="-330 -330 660 660" xmlns="http://www.w3.org/2000/svg">
+              <circle class="wheel-backdrop" r="318"/>
+              <g id="wheel-segs"></g>
+              <circle class="wheel-hub" r="118"/>
+            </svg>
+            <div id="wheel-labels"></div>
+            <div id="wheel-center" role="button" tabindex="0"></div>
+          </div>
+          <button class="page-btn next" id="page-next" title="Next page"><i class="mdi mdi-chevron-right"></i></button>
+        </div>
+        <div id="page-dots"></div>
+        <p class="hint" id="wheel-hint">Point to aim · click to select · center or Esc to go back · right-click to hide</p>
+      </section>
+    </main>
+
+    <aside id="sidebar" aria-hidden="true"></aside>
+    <div id="tooltip" hidden></div>
+    <div id="editor" class="modal" hidden></div>
+    <div id="toasts"></div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
