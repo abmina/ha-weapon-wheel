@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.1
+- Documentation and release-note wording updates. No changes to the dashboard itself.
+
 ## 0.2.0
 - New look: light and dark mode that follow your system setting, blue highlights, clean cards and pill buttons.
   New icon and logo.
