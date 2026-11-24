@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.9
+## 0.3.10
 - A **Home** button in the top bar while you're in the wheels takes you straight back to the house (on phones the
   breadcrumbs are shortened, so the house wasn't always one tap away).
 - The bobbing **map pins** above the room cards are replaced by a round **count pill** in the corner of each card:
