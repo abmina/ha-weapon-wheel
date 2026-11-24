@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.9
+- A **Home** button in the top bar while you're in the wheels takes you straight back to the house (on phones the
+  breadcrumbs are shortened, so the house wasn't always one tap away).
+
 ## 0.3.8
 - Fixed: in the **Companion app** the dashboard went back to the house after 30 seconds even while you were using
   the menus. Every kind of tap, touch, click and scroll now counts as activity, and so does every step through the

@@ -102,6 +102,8 @@ button, input, select { font: inherit; color: inherit; }
 }
 .icon-btn:hover { background: var(--chip); }
 .icon-btn .mdi { font-size: 18px; }
+.icon-btn.primary-btn { background: var(--primary); border-color: var(--primary); color: #fff; }
+.icon-btn.primary-btn:hover { filter: brightness(1.08); background: var(--primary); }
 @media (max-width: 560px) { .icon-btn span, .conn { font-size: 0; gap: 0; } .conn { padding: 8px; } }
 
 /* ---------- views ---------- */

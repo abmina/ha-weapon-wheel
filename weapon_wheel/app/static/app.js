@@ -1566,6 +1566,8 @@ function closeSidebar() {
 function renderCrumbs() {
   markActive(); // every navigation step passes through here
   updatePlanButton();
+  // Home button: shown in the wheels (and on the house while a sidebar is open), back to the house in one tap.
+  $('#btn-home').hidden = S.nav.level === 'house' && !document.body.classList.contains('sidebar-open');
   const c = $('#crumbs');
   document.title = houseName();
   const parts = [[houseName(), () => guard(goHouse)]];
@@ -2733,6 +2735,7 @@ function renderAutoTree(tree, q) {
 
 $('#btn-edit').addEventListener('click', () => { if (!M()) return; if (S.plan) endPlanEdit(false); openEditor(); });
 $('#btn-plan').addEventListener('click', startPlanEdit);
+$('#btn-home').addEventListener('click', () => guard(goHouse));
 
 // ===================================================================
 // Full screen

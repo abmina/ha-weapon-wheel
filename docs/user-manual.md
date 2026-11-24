@@ -92,6 +92,7 @@ and tablets.
 
 The top bar shows:
 
+- **Home** (blue, shown when you're in the wheels): back to the house in one tap.
 - **Breadcrumbs**: where you are, for example *My Home › Ground Floor › Kitchen › Shelly › Kitchen Spots*. Tap any
   step to jump back to it.
 - **Connection pill**: *Connected* (green), *Offline* (red) or *Demo house* (amber, when the app runs without Home
@@ -355,6 +356,7 @@ Save, then restart the app for options to take effect.
 | Wheel | Aim | Point / drag | Arrow keys |
 | Wheel | Select | Click / tap the slice | **Enter** or **Space** |
 | Wheel | Back | Click the centre | **Esc** or **Backspace** |
+| Wheel | Back to the house | **Home** button (top bar) | |
 | Wheel | Next/previous page | Scroll wheel, arrows beside the wheel | **PageDown** / **PageUp** |
 | Wheel | Hide an item | Right-click / long-press (Android) | |
 | Sidebar | Back to the device / close | **‹ Device** / **×** | **Esc** |
