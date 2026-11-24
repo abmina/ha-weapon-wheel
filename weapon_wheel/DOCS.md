@@ -1,5 +1,8 @@
 # Weapon Wheel Dashboard
 
+📖 The full **[user manual](https://github.com/abmina/ha-weapon-wheel/blob/main/docs/user-manual.md)**, with
+screenshots, covers setup, everyday use, room cards, custom homes and troubleshooting. This page is the short version.
+
 Open the dashboard from **Weapon Wheel** in the sidebar (turn on *Show in sidebar* on the app's Info tab).
 
 ## How it finds your home

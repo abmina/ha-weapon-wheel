@@ -23,11 +23,11 @@ jobs:
       - name: Frontend syntax check
         run: node --check weapon_wheel/app/static/app.js
 
-  lint-addon:
+  lint-app:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Home Assistant add-on linter
+      - name: Home Assistant app linter
         uses: frenck/action-addon-linter@v2
         with:
           path: "./weapon_wheel"
@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
-      - name: Build the add-on image
+      - name: Build the app image
         run: |
           base=$(grep "${{ matrix.arch }}:" weapon_wheel/build.yaml | awk '{print $2}')
           platform=$([ "${{ matrix.arch }}" = aarch64 ] && echo linux/arm64 || echo linux/amd64)

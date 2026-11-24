@@ -10,6 +10,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const SVGNS = 'http://www.w3.org/2000/svg';
 
+// Let replaceChildren skip null/false like h() does, so `cond ? el : null` never renders the text "null".
+const nativeReplaceChildren = Element.prototype.replaceChildren;
+Element.prototype.replaceChildren = function replaceChildren(...kids) {
+  return nativeReplaceChildren.apply(this, kids.filter((k) => k != null && k !== false));
+};
+
 function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -2621,7 +2627,7 @@ function setConn(ok) {
   c.title = ok ? (S.demo ? 'Demo mode (no Home Assistant)' : 'Connected to Home Assistant') : 'Disconnected';
 }
 
-/** Optional colour override from the add-on options; the theme's blue is used otherwise. */
+/** Optional colour override from the app's options; the theme's blue is used otherwise. */
 function applyAccent(hex) {
   const root = document.documentElement.style;
   // #ff7a1a was the default of version 0.1.0 - treat it as "not set".

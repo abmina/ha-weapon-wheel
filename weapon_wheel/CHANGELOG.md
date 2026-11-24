@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2
+- New **[user manual](https://github.com/abmina/ha-weapon-wheel/blob/main/docs/user-manual.md)** with screenshots, linked from the
+  Documentation tab.
+- Fixed a stray "null" text above the sidebar for cameras and single entities, and under the list in the
+  *Add devices or entities* picker.
+- Wording: Home Assistant calls add-ons **apps** now, and so do this app's texts.
+
 ## 0.3.1
 - The tooltip when you hover a room now shows exactly what its card shows, in the same order and with names - so a
   temperature sensor you picked for the card is also the one in the tooltip, instead of the automatic one.

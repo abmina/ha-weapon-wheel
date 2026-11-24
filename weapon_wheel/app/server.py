@@ -2,7 +2,7 @@
 """Weapon Wheel dashboard backend.
 
 Connects to Home Assistant's WebSocket API (through the Supervisor proxy when
-running as an add-on), discovers floors -> areas -> devices -> entities, and
+running as a Home Assistant app), discovers floors -> areas -> devices -> entities, and
 serves the dashboard frontend over Ingress. State changes are pushed to the
 browser over a WebSocket; user customizations live in /data/layout.json.
 
@@ -689,7 +689,7 @@ INGRESS_PEERS = {"172.30.32.2", "127.0.0.1", "::1"}
 
 @web.middleware
 async def ingress_only(request: web.Request, handler):
-    """When running as an add-on, refuse anything that doesn't come through Ingress."""
+    """When running as a Home Assistant app, refuse anything that doesn't come through Ingress."""
     if request.remote not in INGRESS_PEERS:
         LOG.warning("Refused direct request from %s", request.remote)
         return json_error(403, "Open this dashboard from the Home Assistant sidebar")

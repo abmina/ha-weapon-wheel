@@ -5,11 +5,13 @@ A Home Assistant app with its own sidebar page. Nothing to configure: it finds y
 
 [![Open your Home Assistant instance and show the dashboard of an app.](https://my.home-assistant.io/badges/supervisor_app.svg)](https://my.home-assistant.io/redirect/supervisor_app/?app=e7dd1b0c_weapon_wheel&repository_url=https%3A%2F%2Fgithub.com%2Fabmina%2Fha-weapon-wheel)
 
+📖 **[User manual](docs/user-manual.md)**: setup, everyday use, room cards, custom homes and troubleshooting.
+
 [![Release](https://img.shields.io/github/v/release/abmina/ha-weapon-wheel?sort=semver)](https://github.com/abmina/ha-weapon-wheel/releases)
 [![Tests](https://github.com/abmina/ha-weapon-wheel/actions/workflows/test.yaml/badge.svg)](https://github.com/abmina/ha-weapon-wheel/actions/workflows/test.yaml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-![Overview](docs/images/overview.png)
+![Overview](docs/images/manual/house.png)
 
 ## Why
 
@@ -54,13 +56,13 @@ you're at the controls. New devices show up on their own as soon as you assign t
 - **Locked down** - runs isolated with an AppArmor profile, and the page is only reachable through Home Assistant's
   login (Ingress). It never contacts the internet at runtime.
 
-| Device wheel | Actions | Dark mode |
+| Room wheel | Device panel | Controls |
 |---|---|---|
-| ![Device wheel](docs/images/device-wheel.png) | ![Actions](docs/images/sidebar.png) | ![Dark mode](docs/images/dark.png) |
+| ![Room wheel](docs/images/manual/room-wheel.png) | ![Device panel](docs/images/manual/device-panel.png) | ![Controls](docs/images/manual/entity-sidebar.png) |
 
-| Customize | Phone |
-|---|---|
-| ![Customize](docs/images/customize.png) | ![Phone](docs/images/mobile.png) |
+| Room card editor | Custom home floor plan | Phone |
+|---|---|---|
+| ![Room card editor](docs/images/manual/card-editor.png) | ![Floor plan](docs/images/manual/floor-plan.png) | ![Phone](docs/images/manual/phone-control.png) |
 
 ## Requirements
 
@@ -86,7 +88,8 @@ The map is built from your **areas**, so assign your devices to areas, and optio
 
 The first install builds the app on your Home Assistant machine, which takes a minute or two.
 
-Full documentation is on the app's **Documentation** tab ([DOCS.md](weapon_wheel/DOCS.md)).
+Next, read **[the user manual](docs/user-manual.md)**: how to prepare your areas and floors, use the wheels, edit room
+cards and build a custom home. A short version is on the app's **Documentation** tab ([DOCS.md](weapon_wheel/DOCS.md)).
 
 ## Controls
 

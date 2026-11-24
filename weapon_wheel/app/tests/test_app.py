@@ -324,7 +324,7 @@ class HAClientTests(unittest.IsolatedAsyncioTestCase):
 
 
 class IngressGuardTests(unittest.IsolatedAsyncioTestCase):
-    async def test_direct_access_refused_when_running_as_addon(self):
+    async def test_direct_access_refused_when_running_as_app(self):
         os.environ["DEMO"] = "1"
         os.environ["SUPERVISOR_TOKEN"] = "x"
         old = server.INGRESS_PEERS
