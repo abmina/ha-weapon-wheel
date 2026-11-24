@@ -145,15 +145,6 @@ button, input, select { font: inherit; color: inherit; }
 .room.empty { cursor: default; }
 .room.empty rect.r-body { stroke-dasharray: 5 5; fill: transparent; }
 .room:not(.empty):hover rect.r-body, .room.focus rect.r-body { fill: var(--primary-soft); stroke: var(--primary); stroke-width: 2; }
-.pin { pointer-events: all; cursor: pointer; }
-.pin .bob { animation: bob 2.4s ease-in-out infinite; }
-.pin .p-body { fill: var(--primary); }
-.pin .p-dot { fill: color-mix(in srgb, var(--primary) 70%, #000); }
-.pin .p-count { fill: #fff; font: 700 13px var(--font); text-anchor: middle; dominant-baseline: central; }
-.pin .p-shadow { fill: rgba(16, 24, 40, .25); animation: shadow 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-.pin.empty { display: none; }
-@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-@keyframes shadow { 0%,100% { transform: scale(1); opacity: .6; } 50% { transform: scale(.7); opacity: .3; } }
 
 .room-label {
   position: absolute; transform: translate(-50%, -50%);
@@ -457,7 +448,6 @@ body.viewer-locked #btn-edit, body.viewer-locked #btn-plan, body.viewer-locked .
 #plan-bar > span { font-size: 13px; }
 .plan-grid { stroke: var(--muted); stroke-width: 3.5; stroke-linecap: round; opacity: .45; fill: none; }
 #house.plan-edit { touch-action: none; }
-#house.plan-edit .pin { display: none; }
 #house.plan-edit .room, #house.plan-edit .room.empty { cursor: grab; }
 #house.plan-edit .room rect.r-body { fill: var(--primary-soft); stroke: var(--primary); stroke-dasharray: none; }
 #house.plan-edit .room:hover rect.r-body { stroke-width: 2.5; }

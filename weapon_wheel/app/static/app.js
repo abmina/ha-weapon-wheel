@@ -625,7 +625,6 @@ function buildHouse() {
   }
 
   const roomEls = [];
-  const pinEls = [];
   for (const b of g.bands) {
     const wallCls = b.outdoor ? 'h-garden' : `h-wall ${b.under ? 'under' : ''} ${b.floor.id === '__unassigned__' ? 'annex' : ''}`;
     parts.push(s('rect', { class: wallCls, x: b.x0, y: b.y, width: b.x1 - b.x0, height: b.h, rx: b.outdoor ? 16 : 0 }));
@@ -644,21 +643,13 @@ function buildHouse() {
           class: 'r-handle', 'data-handle': idx,
           d: `M${r.x + r.w - 4},${r.y + r.h - 26}V${r.y + r.h - 4}H${r.x + r.w - 26}Z`,
         }) : null);
-      const px = r.x + r.w - 24, py = r.y + 34;
-      const pin = s('g', { class: 'pin', transform: `translate(${px},${py})`, 'data-area': r.aid, 'data-idx': idx },
-        s('ellipse', { class: 'p-shadow', cx: 0, cy: 2, rx: 9, ry: 3 }),
-        s('g', { class: 'bob' },
-          s('path', { class: 'p-body', d: 'M0,0 C-4,-10 -16,-18 -16,-32 A16,16 0 1 1 16,-32 C16,-18 4,-10 0,0 Z' }),
-          s('circle', { class: 'p-dot', cx: 0, cy: -32, r: 10 }),
-          s('text', { class: 'p-count', x: 0, y: -32 }, '')));
       roomEls.push(room);
-      pinEls.push(pin);
-      S.rooms.push({ ...r, el: room, pin });
+      S.rooms.push({ ...r, el: room });
     }
   }
   parts.push(roofName);
   parts.push(s('line', { class: 'h-ground', x1: 10, x2: g.W - 10, y1: g.groundY, y2: g.groundY }));
-  svg.replaceChildren(...parts, ...roomEls, ...pinEls);
+  svg.replaceChildren(...parts, ...roomEls);
 
   labels.replaceChildren(...S.rooms.map((r) => {
     const el = h('div', {
@@ -1006,8 +997,6 @@ function paintHouse() {
     const empty = st.devices === 0;
     r.el.classList.toggle('lit', st.lights > 0);
     r.el.classList.toggle('empty', empty);
-    r.pin.classList.toggle('empty', empty);
-    r.pin.querySelector('.p-count').textContent = st.leaves; // what the room's wheel will show
     r.label.classList.toggle('lit', st.lights > 0);
     r.label.classList.toggle('empty', empty);
     r.label.querySelector('.chips').replaceChildren(...st.chips.map((c) => h('span', { title: c.eid ? entName(c.eid) : null }, ico(c.icon), c.text)));

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.10
+- The bobbing **map pins** on the room cards are gone. The tooltip still shows how many devices a room has.
+
 ## 0.3.9
 - A **Home** button in the top bar while you're in the wheels takes you straight back to the house (on phones the
   breadcrumbs are shortened, so the house wasn't always one tap away).

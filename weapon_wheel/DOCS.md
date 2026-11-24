@@ -27,9 +27,7 @@ Set areas and floors under *Settings → Areas, labels & zones*.
 ## Using it
 
 1. **House** - the weather is in the top-left corner (tap it for details). Hover a room for a summary and click it to
-   open it. A room's pin shows how many leaves its wheel has
-   (devices and integration groups). Rooms
-   with lights on glow.
+   open it. Rooms with lights on glow.
 2. **Device wheel** - move the mouse (or your finger) in any direction to aim at a device, and click to open it. Click the
    centre, or press Esc, to go back.
 3. **Entity wheel and device panel** - the wheel shows the device's controls, and the sidebar shows its **Sensors**,
