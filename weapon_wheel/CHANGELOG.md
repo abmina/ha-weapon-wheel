@@ -1,11 +1,13 @@
 # Changelog
 
+## 0.3.11
+- Custom home editor: renaming a group updates the devices' *Group* lists right away, instead of showing the old
+  name (such as "Group 1") until you save.
+
 ## 0.3.10
 - Custom home: devices or entities you had hidden earlier no longer silently stay off the dashboard. Adding one to a
   room shows it again, and every item in the custom editor has an **eye** to show or hide it (hidden items are
   marked *hidden on the dashboard*).
-- Custom home editor: renaming a group updates the devices' *Group* lists right away, instead of showing the old
-  name (such as "Group 1") until you save.
 
 ## 0.3.9
 - A **Home** button in the top bar while you're in the wheels takes you straight back to the house (on phones the
